@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="vivcord.client/vivcord.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="Vivcord.Server/Vivcord.Server.csproj" />
+</Solution>
