@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;
 using Vivcord.Server.DbContext;
+using Vivcord.Server.Hubs;
 using Vivcord.Server.Infastructure.Jwt;
 using Vivcord.Server.Services;
 
@@ -15,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddSignalR();
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -87,9 +89,13 @@ app.MapScalarApiReference(options =>
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<PrivateHub>("hubs/private");
 
 app.MapFallbackToFile("/index.html");
 
