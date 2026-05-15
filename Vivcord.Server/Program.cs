@@ -12,6 +12,7 @@ using Vivcord.Server.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddControllers();
@@ -48,8 +49,8 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = true,
         ValidateAudience = true,
-        ValidIssuer = jwtSetting["LaptopServer"],
-        ValidAudience = jwtSetting["LaptopClient"],
+        ValidIssuer = jwtSetting["VivcordServer"],
+        ValidAudience = jwtSetting["VivcordClient"],
     };
     options.Events = new JwtBearerEvents
     {
@@ -79,7 +80,7 @@ app.MapScalarApiReference(options =>
 {
     options
         .AddPreferredSecuritySchemes("https")
-        .WithTitle("LaptopServer")
+        .WithTitle("VivcordServer")
         .WithTheme(ScalarTheme.DeepSpace)
         .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
 });

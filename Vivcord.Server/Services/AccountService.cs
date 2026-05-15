@@ -14,7 +14,7 @@ namespace Vivcord.Server.Services
         Task<ErrorOr<UserTokensDTO>> RefreshUserToken(string token, CancellationToken ct = default);
         Task<ErrorOr<Success>> UserLogout(string token, CancellationToken ct = default);
     }
-    public class AccountService(UserManager<IdentityUser> manager, ITokenService tokenService, MainDbContext dbContext) : IAccountService
+    public class AccountService(UserManager<IdentityUser> manager, ITokenService tokenService, MainDbContext dbContext, TimeProvider timeProvider) : IAccountService
     {
         public async Task<ErrorOr<UserTokensDTO>> UserRegister(RegisterDTO register, CancellationToken ct = default)
         {
@@ -73,7 +73,7 @@ namespace Vivcord.Server.Services
         public async Task<ErrorOr<UserTokensDTO>> RefreshUserToken(string token, CancellationToken ct = default)
         {
             var curToken = await dbContext.RefreshTokens.FirstOrDefaultAsync(t => t.Token == token && !t.IsUsed && !t.IsRevoked, ct);
-            if (curToken == null || curToken.Expires < DateTime.UtcNow)
+            if (curToken == null || curToken.Expires < timeProvider.GetUtcNow())
                 return Error.Unauthorized(code: "InvalidToken");
             var user = await manager.FindByIdAsync(curToken.UserId);
             if (user == null)
@@ -100,8 +100,8 @@ namespace Vivcord.Server.Services
             {
                 Token = refString,
                 UserId = userId,
-                Created = DateTime.UtcNow,
-                Expires = DateTime.UtcNow.AddDays(1),
+                Created = timeProvider.GetUtcNow(),
+                Expires = timeProvider.GetUtcNow().AddDays(1),
                 IsRevoked = false,
                 IsUsed = false,
             };

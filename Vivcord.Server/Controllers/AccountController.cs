@@ -10,7 +10,7 @@ using Vivcord.Server.Services;
 namespace Vivcord.Server.Controllers
 {
     [Route("[controller]")]
-    public class AccountController(IAccountService accountService) : ApiMainController
+    public class AccountController(IAccountService accountService, TimeProvider timeProvider) : ApiMainController
     {
         [HttpPost("register")]
         public async Task<IActionResult> UserRegister(RegisterDTO register, CancellationToken ct)
@@ -95,8 +95,8 @@ namespace Vivcord.Server.Controllers
             if (user.User == null)
                 return Unauthorized();
 
-            Response.SetCookie(user.Token);
-            Response.SetRefreshCookie(user.RefreshToken); 
+            Response.SetCookie(user.Token, timeProvider);
+            Response.SetRefreshCookie(user.RefreshToken, timeProvider); 
 
             return Ok(user.User);
         }

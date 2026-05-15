@@ -13,7 +13,7 @@ namespace Vivcord.Server.Infastructure.Jwt
         Task<string> GetTokenAsync(IdentityUser user);
         string GetRefreshToken();
     }
-    public class TokenService(IConfiguration config, UserManager<IdentityUser> userManager) : ITokenService
+    public class TokenService(IConfiguration config, UserManager<IdentityUser> userManager, TimeProvider timeProvider) : ITokenService
     {
         public async Task<string> GetTokenAsync(IdentityUser user)
         {
@@ -35,10 +35,10 @@ namespace Vivcord.Server.Infastructure.Jwt
             var TokenDecs = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(10),
+                Expires = timeProvider.GetUtcNow().AddMinutes(10).UtcDateTime,
                 SigningCredentials = credentials,
-                Issuer = config["JwtSetting:LaptopServer"],
-                Audience = config["JwtSetting:LaptopClient"]
+                Issuer = config["JwtSetting:VivcordServer"],
+                Audience = config["JwtSetting:VivcordClient"]
             };
 
             var Handler = new JwtSecurityTokenHandler();
@@ -48,9 +48,7 @@ namespace Vivcord.Server.Infastructure.Jwt
         }
         public string GetRefreshToken()
         {
-            var randomNumber = new byte[64];
-            var rng = RandomNumberGenerator.Create();
-            rng.GetBytes(randomNumber);
+            var randomNumber = RandomNumberGenerator.GetBytes(64);
             return Convert.ToBase64String(randomNumber);
         }
     }

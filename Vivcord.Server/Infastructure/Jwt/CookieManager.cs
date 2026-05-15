@@ -5,7 +5,7 @@
         private const string Jwt = "jwt";
         private const string RefToken = "refToken";
 
-        private static CookieOptions GetOptions(DateTime? expires = null) => new()
+        private static CookieOptions GetOptions(DateTimeOffset? expires = null) => new()
         {
             HttpOnly = true,
             Secure = true,
@@ -13,13 +13,13 @@
             Expires = expires
         };
 
-        public static void SetCookie(this HttpResponse response, string token)
+        public static void SetCookie(this HttpResponse response, string token, TimeProvider timeProvider)
         {
-            response.Cookies.Append(Jwt, token, GetOptions(DateTime.UtcNow.AddMinutes(10)));
+            response.Cookies.Append(Jwt, token, GetOptions(timeProvider.GetUtcNow().AddMinutes(10)));
         }
-        public static void SetRefreshCookie(this HttpResponse response, string token)
+        public static void SetRefreshCookie(this HttpResponse response, string token, TimeProvider timeProvider)
         {
-            response.Cookies.Append(RefToken, token, GetOptions(DateTime.UtcNow.AddDays(1)));
+            response.Cookies.Append(RefToken, token, GetOptions(timeProvider.GetUtcNow().AddDays(1)));
         }
         public static void ClearCookies(this HttpResponse response)
         {
