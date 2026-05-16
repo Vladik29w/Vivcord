@@ -16,11 +16,22 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddSignalR();
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-
+//CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngularOrigin",
+        policy =>
+        {
+            policy.WithOrigins("https://localhost:62667")
+            .AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+        }
+        );
+});
+//Database
 builder.Services.AddDbContext<MainDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 //Identity and roles
@@ -89,13 +100,15 @@ app.MapScalarApiReference(options =>
 
 app.UseHttpsRedirection();
 
+app.UseCors("AllowAngularOrigin");
+
 app.UseAuthentication();
 
 app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapHub<PrivateHub>("hubs/private");
+app.MapHub<PrivateHub>("/hubs/private");
 
 app.MapFallbackToFile("/index.html");
 
