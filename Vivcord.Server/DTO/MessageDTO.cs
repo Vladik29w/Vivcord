@@ -1,4 +1,5 @@
 ﻿namespace Vivcord.Server.DTO
 {
-    public record MessageDto(string SenderId, string Text);
+    public record MessageDto(int Id, string SenderId, string Text);
 }
+

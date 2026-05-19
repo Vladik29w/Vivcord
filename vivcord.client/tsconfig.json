@@ -17,7 +17,7 @@
     "baseUrl": "./",
     "paths": {
       "@environments/*": [ "src/environments/*" ],
-      "@dto/*":  ["src/app/dto/*"]
+      "@account/*":  ["src/app/account/*"]
     }
   },
   "angularCompilerOptions": {

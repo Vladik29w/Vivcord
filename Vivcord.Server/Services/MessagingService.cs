@@ -30,7 +30,7 @@ namespace Vivcord.Server.Services
                 .Where(m => (m.Sender == currentUserId && m.Target == targetUserId) ||
                             (m.Sender == targetUserId && m.Target == currentUserId))
                 .OrderBy(m => m.SentAt)
-                .Select(m => new MessageDto(m.Sender, m.Text))
+                .Select(m => new MessageDto(m.id, m.Sender, m.Text))
                 .ToListAsync();
         }
     }

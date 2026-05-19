@@ -8,7 +8,7 @@ namespace Vivcord.Server.Hubs
     [Authorize]
     public class PrivateHub(MainDbContext dbContext, TimeProvider timeProvider) : Hub
     {
-        public async Task SendMessage(string text, string targetUserId)
+        public async Task<int> SendMessage(string text, string targetUserId)
         {
             var senderId = Context.UserIdentifier!;
 
@@ -22,7 +22,8 @@ namespace Vivcord.Server.Hubs
             dbContext.UserMessages.Add(userMessage);
             await dbContext.SaveChangesAsync();
 
-            await Clients.User(targetUserId).SendAsync("ReciveMessage", senderId, text);
+            await Clients.User(targetUserId).SendAsync("ReciveMessage", senderId, text, userMessage.id);
+            return userMessage.id;
         }
     }
 }

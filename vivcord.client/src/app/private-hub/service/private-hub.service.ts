@@ -1,14 +1,15 @@
 import { Injectable, signal, inject } from '@angular/core';
+import { Subject } from 'rxjs';
 import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr';
-import { environment } from '@environments/environment';
-import { AccountService } from '../../account/service/account.service';
+import { AccountService } from '@account/service/account.service';
+import { messageDTO } from '../dto/message-dto';
 @Injectable({
   providedIn: 'root',
 })
 export class PrivateHubService {
   private _hubConntection?: HubConnection;
   private _accountService = inject(AccountService);
-  public messages = signal<{ senderId: string, text: string }[]>([]);
+  public messageReceived$ = new Subject<messageDTO>()
 
   public connectToHub() {
     this._hubConntection = new HubConnectionBuilder()
@@ -22,8 +23,8 @@ export class PrivateHubService {
       .then(() => console.log("Connected to hub"))
       .catch(err => console.log(err));
 
-    this._hubConntection.on("ReciveMessage", (senderId: string, text: string) => {
-      this.messages.update(msg => [...msg, { senderId, text }]);
+    this._hubConntection.on("ReciveMessage", (senderId: string, text: string, messageId: number) => {
+      this.messageReceived$.next({ id: messageId, status: "sent", senderId, text });
     })
     this._hubConntection?.onclose(async (err) => {
       if (err && err.message.includes('404')) {
@@ -38,16 +39,20 @@ export class PrivateHubService {
       }
     })
   }
-  public async sendMessage(targetUser: string, text: string) {
+  public async sendMessage(targetUser: string, text: string): Promise<number> {
     if (this._hubConntection?.state == HubConnectionState.Connected) {
       try {
-        await this._hubConntection.invoke("SendMessage", text, targetUser);
+        const messageId = await this._hubConntection.invoke<number>("SendMessage", text, targetUser);
+        return messageId;
       }
       catch (err) {
-        console.log(err);
+        console.log(err); 
+        throw err;
       }
     }
-    else
+    else {
       console.log("Not connected to hub");
+      throw new Error("Not connected to hub");
+    }
   }
 }

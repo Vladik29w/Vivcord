@@ -75,9 +75,13 @@ namespace Vivcord.Server.Controllers
         public IActionResult GetActiveUser()
         {
             var email = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue(JwtRegisteredClaimNames.Email);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
             if (string.IsNullOrEmpty(email))
                 return BadRequest("User email claim not found.");
+
+            if (string.IsNullOrEmpty(userId))
+                return BadRequest("User id claim not found.");
 
             var roles = User.Claims
                 .Where(c => c.Type == ClaimTypes.Role)
@@ -86,6 +90,7 @@ namespace Vivcord.Server.Controllers
 
             return Ok(new UserDTO
             {
+                Id = userId,
                 Email = email,
                 Roles = roles
             });
