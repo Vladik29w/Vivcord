@@ -16,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IContactService, ContactService>();
 builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddSignalR();
 builder.Services.AddControllers();

@@ -51,7 +51,7 @@ export class PrivateHubComponent implements OnInit {
   }
 
   private loadUserProfile(username: string) {
-    this.http.get<{ id: string, userName: string }>(`${environment.apiUrl}/Messaging/find/${username}`)
+    this.http.get<{ id: string, userName: string }>(`${environment.apiUrl}/Contact/find/${username}`)
       .subscribe({
         next: (user) => {
           this.targetUserId.set(user.id);
