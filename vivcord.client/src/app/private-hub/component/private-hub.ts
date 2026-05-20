@@ -1,5 +1,5 @@
-import { Component, inject, signal, OnInit, computed } from '@angular/core';
-import { Subscription } from 'rxjs'
+import { Component, inject, signal, OnInit, computed, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PrivateHubService } from '../service/private-hub.service';
 import { ActivatedRoute } from '@angular/router';
 import { messageDTO } from '../dto/message-dto';
@@ -14,14 +14,14 @@ export class PrivateHubComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private chatService = inject(PrivateHubService);
   private accountService = inject(AccountService);
+  private destroyRef = inject(DestroyRef);
 
   public senderId = computed(() => this.accountService.currentUser()?.id);
   public targetUserId = signal<string | null>(null);
   public currentUsername = signal<string>('');
   public messages = signal<messageDTO[]>([]);
-  private messageSub?: Subscription;
   ngOnInit() {
-    this.route.paramMap.subscribe(params => {
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       const username = params.get('username');
       if (username) {
         this.currentUsername.set(username);
@@ -36,7 +36,7 @@ export class PrivateHubComponent implements OnInit {
 
     this.chatService.connectToHub();
 
-    this.messageSub = this.chatService.messageReceived$.subscribe(msg => {
+    this.chatService.messageReceived$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(msg => {
       if (msg.senderId == this.targetUserId()) {
         const fullMsg: messageDTO = {
           ...msg,
