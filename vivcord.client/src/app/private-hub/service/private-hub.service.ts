@@ -1,14 +1,17 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr';
+import { HttpClient } from '@angular/common/http';
 import { AccountService } from '@account/service/account.service';
 import { messageDTO } from '../dto/message-dto';
+import { environment } from '@environments/environment';
 @Injectable({
   providedIn: 'root',
 })
 export class PrivateHubService {
   private _hubConntection?: HubConnection;
   private _accountService = inject(AccountService);
+  private _http = inject(HttpClient);
   public messageReceived$ = new Subject<messageDTO>()
 
   public connectToHub() {
@@ -54,5 +57,25 @@ export class PrivateHubService {
       console.log("Not connected to hub");
       throw new Error("Not connected to hub");
     }
+  }
+
+  public loadUserProfile(username: string, onSuccess: (userId: string) => void) {
+    this._http.get<{ id: string, userName: string }>(`${environment.apiUrl}/Contact/find/${username}`)
+      .subscribe({
+        next: (user) => {
+          onSuccess(user.id);
+        },
+        error: () => console.error('User not found')
+      });
+  }
+
+  public loadChatHistory(targetId: string, onSuccess: (history: messageDTO[]) => void) {
+    this._http.get<messageDTO[]>(`${environment.apiUrl}/Messaging/history/${targetId}`)
+      .subscribe({
+        next: (history) => {
+          onSuccess(history);
+        },
+        error: (err) => console.error(err)
+      });
   }
 }

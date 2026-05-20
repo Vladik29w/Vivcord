@@ -1,9 +1,7 @@
 import { Component, inject, signal, OnInit, computed } from '@angular/core';
 import { Subscription } from 'rxjs'
 import { PrivateHubService } from '../service/private-hub.service';
-import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
-import { environment } from '@environments/environment';
 import { messageDTO } from '../dto/message-dto';
 import { AccountService } from '@account/service/account.service';
 @Component({
@@ -14,7 +12,6 @@ import { AccountService } from '@account/service/account.service';
 })
 export class PrivateHubComponent implements OnInit {
   private route = inject(ActivatedRoute);
-  private http = inject(HttpClient);
   private chatService = inject(PrivateHubService);
   private accountService = inject(AccountService);
 
@@ -28,12 +25,17 @@ export class PrivateHubComponent implements OnInit {
       const username = params.get('username');
       if (username) {
         this.currentUsername.set(username);
-        this.loadUserProfile(username);
+        this.chatService.loadUserProfile(username, (userId) => {
+          this.targetUserId.set(userId);
+          this.chatService.loadChatHistory(userId, (history) => {
+            this.messages.set(history);
+          });
+        });
       }
     });
 
     this.chatService.connectToHub();
-    
+
     this.messageSub = this.chatService.messageReceived$.subscribe(msg => {
       if (msg.senderId == this.targetUserId()) {
         const fullMsg: messageDTO = {
@@ -48,26 +50,6 @@ export class PrivateHubComponent implements OnInit {
         console.log("new message from: ", msg.senderId)//TODO: make toast notification
       }
     })
-  }
-
-  private loadUserProfile(username: string) {
-    this.http.get<{ id: string, userName: string }>(`${environment.apiUrl}/Contact/find/${username}`)
-      .subscribe({
-        next: (user) => {
-          this.targetUserId.set(user.id);
-          this.loadChatHistory(user.id);
-        },
-        error: () => console.error('User not found')
-      });
-  }
-  private loadChatHistory(targetId: string) {
-    this.http.get<messageDTO[]>(`${environment.apiUrl}/Messaging/history/${targetId}`)
-      .subscribe({
-        next: (history) => {
-          this.messages.set(history);
-        },
-        error: (err) => console.error(err)
-      });
   }
   public async send(text: string) {
     const id = this.targetUserId();
