@@ -1,0 +1,70 @@
+﻿using ErrorOr;
+using Microsoft.EntityFrameworkCore;
+using Vivcord.Server.DbContext;
+using Vivcord.Server.DTO;
+using Vivcord.Server.Models;
+
+namespace Vivcord.Server.Services
+{
+    public interface IFriendService
+    {
+        Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId);
+        Task<ErrorOr<Success>> AddToFriendList(Guid ownerId, string userNameToAdd);
+        Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToAdd);
+    }
+    public class FriendService(MainDbContext dbContext) : IFriendService
+    {
+        public async Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId)
+        {
+            var friends = await dbContext.UserFriends
+             .AsNoTracking()
+             .Where(uf => uf.UserId == ownerId)
+             .Select(uf => new FriendDTO(uf.FriendId, uf.Friend.UserName!))
+             .ToListAsync();
+
+            return friends;
+        }
+        public async Task<ErrorOr<Success>> AddToFriendList(Guid ownerId, string userNameToAdd)
+        {
+            var friend = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == userNameToAdd);
+            if (friend == null)
+                return Error.NotFound(description: $"User {userNameToAdd} not found");
+            if (friend.Id == ownerId)
+                return Error.Conflict(description: "You can't add yourself");
+
+            var alreadyFriends = await dbContext.UserFriends
+                .AnyAsync(uf => uf.UserId == ownerId && uf.FriendId == friend.Id);
+
+            if (alreadyFriends)
+                return Error.Conflict(description: "Already in friend list");
+
+            var newFriendship = new AppUserFriend
+            {
+                UserId = ownerId,
+                FriendId = friend.Id
+            };
+
+            dbContext.UserFriends.Add(newFriendship);
+            await dbContext.SaveChangesAsync();
+
+            return Result.Success;
+        }
+        public async Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove)
+        {
+            var friend = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == userNameToRemove);
+            if (friend == null)
+                return Error.NotFound(description: $"User {userNameToRemove} not found");
+
+            var friendship = await dbContext.UserFriends
+                .FirstOrDefaultAsync(uf => uf.UserId == ownerId && uf.FriendId == friend.Id);
+
+            if (friendship == null)
+                return Error.NotFound(description: "This user is not in your friend list");
+
+            dbContext.UserFriends.Remove(friendship);
+            await dbContext.SaveChangesAsync();
+
+            return Result.Success;
+        }
+    }
+}

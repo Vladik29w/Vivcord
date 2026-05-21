@@ -1,9 +1,10 @@
 ﻿using ErrorOr;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Infastructure.Jwt;
-using Microsoft.AspNetCore.Identity;
-using Vivcord.Server.DbContext;
-using Microsoft.EntityFrameworkCore;
+using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Services
 {
@@ -14,11 +15,11 @@ namespace Vivcord.Server.Services
         Task<ErrorOr<UserTokensDTO>> RefreshUserToken(string token, CancellationToken ct = default);
         Task<ErrorOr<Success>> UserLogout(string token, CancellationToken ct = default);
     }
-    public class AccountService(UserManager<IdentityUser> manager, ITokenService tokenService, MainDbContext dbContext, TimeProvider timeProvider) : IAccountService
+    public class AccountService(UserManager<AppUser> manager, ITokenService tokenService, MainDbContext dbContext, TimeProvider timeProvider) : IAccountService
     {
         public async Task<ErrorOr<UserTokensDTO>> UserRegister(RegisterDTO register, CancellationToken ct = default)
         {
-            var user = new IdentityUser
+            var user = new AppUser
             {
                 UserName = register.Name,
                 Email = register.Email,
@@ -75,7 +76,7 @@ namespace Vivcord.Server.Services
             var curToken = await dbContext.RefreshTokens.FirstOrDefaultAsync(t => t.Token == token && !t.IsUsed && !t.IsRevoked, ct);
             if (curToken == null || curToken.Expires < timeProvider.GetUtcNow())
                 return Error.Unauthorized(code: "InvalidToken");
-            var user = await manager.FindByIdAsync(curToken.UserId);
+            var user = await manager.FindByIdAsync(curToken.UserId.ToString());
             if (user == null)
                 return Error.NotFound(code: "UserNotFound");
             curToken.IsUsed = true;
@@ -93,7 +94,7 @@ namespace Vivcord.Server.Services
                 RefreshToken = newRefresh,
             };
         }
-        private async Task<string> SetRefreshToken(string userId, CancellationToken ct = default)
+        private async Task<string> SetRefreshToken(Guid userId, CancellationToken ct = default)
         {
             var refString = tokenService.GetRefreshToken();
             var refToken = new Models.RefreshToken

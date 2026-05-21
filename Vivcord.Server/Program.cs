@@ -7,6 +7,7 @@ using System.Text;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.Hubs;
 using Vivcord.Server.Infastructure.Jwt;
+using Vivcord.Server.Models;
 using Vivcord.Server.Services;
 
 
@@ -18,6 +19,7 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContactService, ContactService>();
 builder.Services.AddScoped<IMessagingService, MessagingService>();
+builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddSignalR();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -36,14 +38,14 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<MainDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 //Identity and roles
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+builder.Services.AddIdentityCore<AppUser>(options =>
 {
     options.Password.RequireDigit = true;
     options.Password.RequiredLength = 6;
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
 })
-.AddRoles<IdentityRole>()
+.AddRoles<IdentityRole<Guid>>()
 .AddEntityFrameworkStores<MainDbContext>()
 .AddDefaultTokenProviders();
 //JWT

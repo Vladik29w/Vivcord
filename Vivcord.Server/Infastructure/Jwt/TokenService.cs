@@ -5,21 +5,22 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Infastructure.Jwt
 {
     public interface ITokenService
     {
-        Task<string> GetTokenAsync(IdentityUser user);
+        Task<string> GetTokenAsync(AppUser user);
         string GetRefreshToken();
     }
-    public class TokenService(IConfiguration config, UserManager<IdentityUser> userManager, TimeProvider timeProvider) : ITokenService
+    public class TokenService(IConfiguration config, UserManager<AppUser> userManager, TimeProvider timeProvider) : ITokenService
     {
-        public async Task<string> GetTokenAsync(IdentityUser user)
+        public async Task<string> GetTokenAsync(AppUser user)
         {
             var claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.NameId, user.Id),
+                new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? string.Empty),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty)
             };
