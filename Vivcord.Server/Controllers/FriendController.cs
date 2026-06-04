@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Vivcord.Server.Controllers.Main;
+using Vivcord.Server.DTO;
 using Vivcord.Server.Services;
 
 namespace Vivcord.Server.Controllers
@@ -12,7 +13,7 @@ namespace Vivcord.Server.Controllers
     public class FriendController(IFriendService friendService) : ApiMainController
     {
         [HttpGet("list")]
-        public async Task<IActionResult> GetFriendList(CancellationToken ct)
+        public async Task<IActionResult> GetFriendList()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
@@ -31,7 +32,7 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpPost("add")]
-        public async Task<IActionResult> AddToFriendList(string userNameToAdd, CancellationToken ct)
+        public async Task<IActionResult> AddToFriendList(string userNameToAdd)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
@@ -44,13 +45,13 @@ namespace Vivcord.Server.Controllers
             var addResult = await friendService.AddToFriendList(userIdGuid, userNameToAdd);
 
             return addResult.Match(
-                success => Ok(),
+                FriendDTO => Ok(FriendDTO),
                 errors => Problem(errors)
             );
         }
 
         [HttpDelete("remove")]
-        public async Task<IActionResult> RemoveFromFriendList(string userNameToRemove, CancellationToken ct)
+        public async Task<IActionResult> RemoveFromFriendList(string userNameToRemove)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 

@@ -1,0 +1,50 @@
+<div class="friend-list-container">
+  <div class="friend-list-header">
+    <h2>Friends list</h2>
+  </div>
+
+  <div class="add-friend-section">
+    <input
+      type="text"
+      #userNameInput
+      placeholder="username"
+      class="friend-input"
+    />
+    <button
+      (click)="addFriend(userNameInput.value)"
+      class="btn btn-add"
+    >
+      Add
+    </button>
+  </div>
+
+  <div class="friends-list">
+    @if (friendList().length === 0) {
+      <div class="empty-state">
+        <p>You dont have any friends</p>
+      </div>
+    } @else {
+      <ul class="friend-items">
+        @for (friend of friendList(); track friend.id) {
+          <li class="friend-item">
+            <div class="friend-info">
+              <button
+                (click)="navigateToChat(friend.userName)"
+                class="friend-name-btn"
+              >
+                {{ friend.userName }}
+              </button>
+            </div>
+            <button
+              (click)="removeFriend(friend.userName)"
+              class="btn btn-remove"
+              title="Delete"
+            >
+              ✕
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</div>

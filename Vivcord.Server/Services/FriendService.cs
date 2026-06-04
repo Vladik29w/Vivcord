@@ -9,7 +9,7 @@ namespace Vivcord.Server.Services
     public interface IFriendService
     {
         Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId);
-        Task<ErrorOr<Success>> AddToFriendList(Guid ownerId, string userNameToAdd);
+        Task<ErrorOr<FriendDTO>> AddToFriendList(Guid ownerId, string userNameToAdd);
         Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToAdd);
     }
     public class FriendService(MainDbContext dbContext) : IFriendService
@@ -24,7 +24,7 @@ namespace Vivcord.Server.Services
 
             return friends;
         }
-        public async Task<ErrorOr<Success>> AddToFriendList(Guid ownerId, string userNameToAdd)
+        public async Task<ErrorOr<FriendDTO>> AddToFriendList(Guid ownerId, string userNameToAdd)
         {
             var friend = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == userNameToAdd);
             if (friend == null)
@@ -47,7 +47,7 @@ namespace Vivcord.Server.Services
             dbContext.UserFriends.Add(newFriendship);
             await dbContext.SaveChangesAsync();
 
-            return Result.Success;
+            return new FriendDTO(friend.Id, friend.UserName!);
         }
         public async Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove)
         {
