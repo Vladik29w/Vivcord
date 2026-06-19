@@ -1,0 +1,127 @@
+<div class="register-container">
+  <div class="register-card">
+    <h1>Sign Up</h1>
+
+    <!-- Global error -->
+    @if (error()) {
+      <div class="error-message">
+        {{ error() }}
+      </div>
+    }
+
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+      <!-- Name field -->
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input
+          id="name"
+          type="text"
+          formControlName="name"
+          placeholder="Enter your full name"
+          [class.is-invalid]="registerForm.get('name')?.invalid && registerForm.get('name')?.touched"
+        />
+        @if (registerForm.get('name')?.invalid && registerForm.get('name')?.touched) {
+          <div class="error-text">
+            @if (registerForm.get('name')?.hasError('required')) {
+              <span>Name is required</span>
+            }
+            @if (registerForm.get('name')?.hasError('minlength')) {
+              <span>Name must be at least 2 characters</span>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Email field -->
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          placeholder="Enter your email"
+          [class.is-invalid]="registerForm.get('email')?.invalid && registerForm.get('email')?.touched"
+        />
+        @if (registerForm.get('email')?.invalid && registerForm.get('email')?.touched) {
+          <div class="error-text">
+            @if (registerForm.get('email')?.hasError('required')) {
+              <span>Email is required</span>
+            }
+            @if (registerForm.get('email')?.hasError('email')) {
+              <span>Enter a valid email</span>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Password field -->
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          placeholder="Minimum 6 characters with a digit"
+          [class.is-invalid]="registerForm.get('password')?.invalid && registerForm.get('password')?.touched"
+        />
+        @if (registerForm.get('password')?.invalid && registerForm.get('password')?.touched) {
+          <div class="error-text">
+            @if (registerForm.get('password')?.hasError('required')) {
+              <span>Password is required</span>
+            }
+            @if (registerForm.get('password')?.hasError('minlength')) {
+              <span>Password must be at least 6 characters</span>
+            }
+            @if (registerForm.get('password')?.hasError('pattern')) {
+              <span>Password must contain a digit</span>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Confirm Password field -->
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input
+          id="confirmPassword"
+          type="password"
+          formControlName="confirmPassword"
+          placeholder="Repeat your password"
+          [class.is-invalid]="registerForm.get('confirmPassword')?.invalid && registerForm.get('confirmPassword')?.touched"
+        />
+        @if (registerForm.get('confirmPassword')?.invalid && registerForm.get('confirmPassword')?.touched) {
+          <div class="error-text">
+            @if (registerForm.get('confirmPassword')?.hasError('required')) {
+              <span>Password confirmation is required</span>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Password mismatch error -->
+      @if (registerForm.hasError('passwordMismatch') && registerForm.get('confirmPassword')?.touched) {
+        <div class="error-text">
+          <span>Passwords do not match</span>
+        </div>
+      }
+
+      <!-- Submit button -->
+      <button
+        type="submit"
+        [disabled]="isLoading() || registerForm.invalid"
+        class="submit-btn"
+      >
+        @if (isLoading()) {
+          <span class="loading">Loading...</span>
+        } @else {
+          <span>Create Account</span>
+        }
+      </button>
+    </form>
+
+    <!-- Link to login -->
+    <p class="login-link">
+      Already have an account? <a href="/login">Sign In</a>
+    </p>
+  </div>
+</div>
