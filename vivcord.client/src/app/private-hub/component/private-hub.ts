@@ -25,6 +25,9 @@ export class PrivateHubComponent implements OnInit {
       const username = params.get('username');
       if (username) {
         this.currentUsername.set(username);
+        // Save the last opened chat to local storage
+        localStorage.setItem('lastChat', username);
+        
         this.chatService.loadUserProfile(username, (userId) => {
           this.targetUserId.set(userId);
           this.chatService.loadChatHistory(userId, (history) => {

@@ -1,8 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AccountService } from '@account/service/account.service';
-import { LoginDTO } from '../dto/account-dto';
+import { LoginDTO } from '@account/dto/account-dto';
 
 @Component({
   selector: 'app-login',

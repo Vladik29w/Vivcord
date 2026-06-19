@@ -23,16 +23,17 @@ builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddSignalR();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-//CORS
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularOrigin",
         policy =>
         {
-            policy.WithOrigins("https://localhost:62667")
-            .AllowAnyHeader().AllowAnyMethod().AllowCredentials();
-        }
-        );
+            policy.WithOrigins("https://localhost:62667", "https://127.0.0.1:62667")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        });
 });
 //Database
 builder.Services.AddDbContext<MainDbContext>(options =>
