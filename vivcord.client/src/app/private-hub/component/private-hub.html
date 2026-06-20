@@ -2,43 +2,40 @@
 <div class="chat-container">
 
   <header class="chat-header">
-    <h2>Чат з: {{ currentUsername() }}</h2>
+    <h2>Chat: {{ currentUsername() }}</h2>
   </header>
 
   <main class="chat-messages">
     @for (msg of messages(); track $index) {
 
-    <div class="message-row"
-         [class.my-message]="msg.senderId !== targetUserId()"
-         [class.their-message]="msg.senderId === targetUserId()">
+    <div class="message-row" [class.my-message]="msg.senderId !== targetUserId()"
+      [class.their-message]="msg.senderId === targetUserId()">
 
       <div class="message-bubble">
-        {{ msg.text }}
+        <strong>{{ msg.senderId === targetUserId() ? currentUsername() : currentUserNickname() }}:</strong>
+        {{ msg.text}}
       </div>
 
     </div>
 
     } @empty {
     <div class="chat-empty">
-      Тут поки порожньо. Напишіть щось!
+      Chat is empty
     </div>
     }
   </main>
 
   <footer class="chat-input-area">
-    <input #msgInput
-           type="text"
-           placeholder="Напишіть повідомлення..."
-           (keyup.enter)="send(msgInput.value); msgInput.value = ''"
-           autofocus>
+    <input #msgInput type="text" placeholder="Message..." (keyup.enter)="send(msgInput.value); msgInput.value = ''"
+      autofocus>
     <button (click)="send(msgInput.value); msgInput.value = ''">
-      Відправити
+      Send
     </button>
   </footer>
 
 </div>
 } @else {
 <div class="loading-screen">
-  Завантаження профілю...
+  Profile loading...
 </div>
 }
