@@ -12,11 +12,14 @@ namespace Vivcord.Server.Services
     {
         public async Task<IReadOnlyList<MessageDto>> GetChatHistory(string currentUserId, string targetUserId)
         {
+            var currentGuid = Guid.Parse(currentUserId);
+            var targetGuid = Guid.Parse(targetUserId);
+
             return await dbContext.UserMessages
-                .Where(m => (m.Sender == currentUserId && m.Target == targetUserId) ||
-                            (m.Sender == targetUserId && m.Target == currentUserId))
+                .Where(m => (m.Sender == currentGuid && m.Target == targetGuid) ||
+                            (m.Sender == targetGuid && m.Target == currentGuid))
                 .OrderBy(m => m.SentAt)
-                .Select(m => new MessageDto(m.id, m.Sender, m.Text))
+                .Select(m => new MessageDto(m.id, m.Sender.ToString().ToLower(), m.Text))
                 .ToListAsync();
         }
     }

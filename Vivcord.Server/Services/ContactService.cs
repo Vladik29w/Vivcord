@@ -18,7 +18,7 @@ namespace Vivcord.Server.Services
                 .Where(u => u.UserName == username)
                 .Select(u => new FindUserDTO
                 {
-                    Id = u.Id.ToString(),
+                    Id = u.Id.ToString().ToLower(),
                     Name = u.UserName!
                 })
                 .FirstOrDefaultAsync();

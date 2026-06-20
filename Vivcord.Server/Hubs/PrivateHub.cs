@@ -11,18 +11,19 @@ namespace Vivcord.Server.Hubs
         public async Task<int> SendMessage(string text, string targetUserId)
         {
             var senderId = Context.UserIdentifier!;
+            var normalizedTargetUserId = targetUserId.ToLowerInvariant();
 
             var userMessage = new UserMessage
             {
                 Text = text,
-                Sender = senderId,
-                Target = targetUserId,
+                Sender = Guid.Parse(senderId),
+                Target = Guid.Parse(normalizedTargetUserId),
                 SentAt = timeProvider.GetUtcNow()
             };
             dbContext.UserMessages.Add(userMessage);
             await dbContext.SaveChangesAsync();
 
-            await Clients.User(targetUserId).SendAsync("ReciveMessage", senderId, text, userMessage.id);
+            await Clients.User(normalizedTargetUserId).SendAsync("ReciveMessage", senderId, text, userMessage.id);
             return userMessage.id;
         }
     }

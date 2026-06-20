@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -7,6 +8,7 @@ using System.Text;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.Hubs;
 using Vivcord.Server.Infastructure.Jwt;
+using Vivcord.Server.Infastructure.SignalR;
 using Vivcord.Server.Models;
 using Vivcord.Server.Services;
 
@@ -21,6 +23,7 @@ builder.Services.AddScoped<IContactService, ContactService>();
 builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, LowercaseUserIdProvider>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 // CORS
