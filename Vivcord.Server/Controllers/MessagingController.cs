@@ -9,14 +9,14 @@ namespace Vivcord.Server.Controllers
     public class MessagingController(IMessagingService messagingService) : ApiMainController
     {
         [HttpGet("history/{targetUserId}")]
-        public async Task<IActionResult> GetChatHistory(string targetUserId)
+        public async Task<IActionResult> GetChatHistory(string targetUserId, CancellationToken cancellationToken)
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (currentUserId == null)
                 return Unauthorized();
 
-            var history = await messagingService.GetChatHistory(currentUserId, targetUserId);
+            var history = await messagingService.GetChatHistory(currentUserId, targetUserId, cancellationToken);
             return Ok(history);
         }
     }

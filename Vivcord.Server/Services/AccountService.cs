@@ -1,4 +1,4 @@
-﻿using ErrorOr;
+using ErrorOr;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
@@ -39,7 +39,7 @@ namespace Vivcord.Server.Services
             var refreshToken = await SetRefreshToken(user.Id, ct);
             return new UserTokensDTO
             {
-                User = new UserDTO { Email = register.Email!, Roles = roles },
+                User = new UserDTO { Id = user.Id.ToString(), Email = register.Email!, Roles = roles },
                 Token = token,
                 RefreshToken = refreshToken,
             };
@@ -57,7 +57,7 @@ namespace Vivcord.Server.Services
             var refreshToken = await SetRefreshToken(user.Id, ct);
             return new UserTokensDTO
             {
-                User = new UserDTO { Email = login.Email!, Roles = roles.ToList() },
+                User = new UserDTO { Id = user.Id.ToString(), Email = login.Email!, Roles = roles.ToList() },
                 Token = token,
                 RefreshToken = refreshToken,
             };
@@ -86,7 +86,7 @@ namespace Vivcord.Server.Services
             var newJwt = await tokenService.GetTokenAsync(user);
             var newRefresh = await SetRefreshToken(user.Id, ct);
 
-            var userDto = new UserDTO { Email = user.Email!, Roles = roles.ToList() };
+            var userDto = new UserDTO { Id = user.Id.ToString(), Email = user.Email!, Roles = roles.ToList() };
             return new UserTokensDTO
             {
                 User = userDto,

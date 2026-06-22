@@ -13,7 +13,7 @@ namespace Vivcord.Server.Controllers
     public class FriendController(IFriendService friendService) : ApiMainController
     {
         [HttpGet("list")]
-        public async Task<IActionResult> GetFriendList()
+        public async Task<IActionResult> GetFriendList(CancellationToken cancellationToken)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
@@ -23,7 +23,7 @@ namespace Vivcord.Server.Controllers
             if (!Guid.TryParse(userId, out var userIdGuid))
                 return BadRequest("Invalid user id format.");
 
-            var friendListResult = await friendService.GetFriendList(userIdGuid);
+            var friendListResult = await friendService.GetFriendList(userIdGuid, cancellationToken);
 
             return friendListResult.Match(
                 friendList => Ok(friendList),
@@ -32,7 +32,7 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpPost("add")]
-        public async Task<IActionResult> AddToFriendList(string userNameToAdd)
+        public async Task<IActionResult> AddToFriendList(string userNameToAdd, CancellationToken cancellationToken)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
@@ -42,7 +42,7 @@ namespace Vivcord.Server.Controllers
             if (!Guid.TryParse(userId, out var userIdGuid))
                 return BadRequest("Invalid user id format.");
 
-            var addResult = await friendService.AddToFriendList(userIdGuid, userNameToAdd);
+            var addResult = await friendService.AddToFriendList(userIdGuid, userNameToAdd, cancellationToken);
 
             return addResult.Match(
                 FriendDTO => Ok(FriendDTO),
@@ -51,7 +51,7 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpDelete("remove")]
-        public async Task<IActionResult> RemoveFromFriendList(string userNameToRemove)
+        public async Task<IActionResult> RemoveFromFriendList(string userNameToRemove, CancellationToken cancellationToken)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
@@ -61,7 +61,7 @@ namespace Vivcord.Server.Controllers
             if (!Guid.TryParse(userId, out var userIdGuid))
                 return BadRequest("Invalid user id format.");
 
-            var removeResult = await friendService.RemoveFromFriendList(userIdGuid, userNameToRemove);
+            var removeResult = await friendService.RemoveFromFriendList(userIdGuid, userNameToRemove, cancellationToken);
 
             return removeResult.Match(
                 success => Ok(),

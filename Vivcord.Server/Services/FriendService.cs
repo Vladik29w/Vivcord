@@ -8,32 +8,32 @@ namespace Vivcord.Server.Services
 {
     public interface IFriendService
     {
-        Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId);
-        Task<ErrorOr<FriendDTO>> AddToFriendList(Guid ownerId, string userNameToAdd);
-        Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToAdd);
+        Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId, CancellationToken cancellationToken = default);
+        Task<ErrorOr<FriendDTO>> AddToFriendList(Guid ownerId, string userNameToAdd, CancellationToken cancellationToken = default);
+        Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToAdd, CancellationToken cancellationToken = default);
     }
     public class FriendService(MainDbContext dbContext) : IFriendService
     {
-        public async Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId)
+        public async Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId, CancellationToken cancellationToken = default)
         {
             var friends = await dbContext.UserFriends
              .AsNoTracking()
              .Where(uf => uf.UserId == ownerId)
              .Select(uf => new FriendDTO(uf.FriendId, uf.Friend.UserName!))
-             .ToListAsync();
+             .ToListAsync(cancellationToken);
 
             return friends;
         }
-        public async Task<ErrorOr<FriendDTO>> AddToFriendList(Guid ownerId, string userNameToAdd)
+        public async Task<ErrorOr<FriendDTO>> AddToFriendList(Guid ownerId, string userNameToAdd, CancellationToken cancellationToken = default)
         {
-            var friend = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == userNameToAdd);
+            var friend = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == userNameToAdd, cancellationToken);
             if (friend == null)
                 return Error.NotFound(description: $"User {userNameToAdd} not found");
             if (friend.Id == ownerId)
                 return Error.Conflict(description: "You can't add yourself");
 
             var alreadyFriends = await dbContext.UserFriends
-                .AnyAsync(uf => uf.UserId == ownerId && uf.FriendId == friend.Id);
+                .AnyAsync(uf => uf.UserId == ownerId && uf.FriendId == friend.Id, cancellationToken);
 
             if (alreadyFriends)
                 return Error.Conflict(description: "Already in friend list");
@@ -45,24 +45,24 @@ namespace Vivcord.Server.Services
             };
 
             dbContext.UserFriends.Add(newFriendship);
-            await dbContext.SaveChangesAsync();
+            await dbContext.SaveChangesAsync(cancellationToken);
 
             return new FriendDTO(friend.Id, friend.UserName!);
         }
-        public async Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove)
+        public async Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove, CancellationToken cancellationToken = default)
         {
-            var friend = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == userNameToRemove);
+            var friend = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == userNameToRemove, cancellationToken);
             if (friend == null)
                 return Error.NotFound(description: $"User {userNameToRemove} not found");
 
             var friendship = await dbContext.UserFriends
-                .FirstOrDefaultAsync(uf => uf.UserId == ownerId && uf.FriendId == friend.Id);
+                .FirstOrDefaultAsync(uf => uf.UserId == ownerId && uf.FriendId == friend.Id, cancellationToken);
 
             if (friendship == null)
                 return Error.NotFound(description: "This user is not in your friend list");
 
             dbContext.UserFriends.Remove(friendship);
-            await dbContext.SaveChangesAsync();
+            await dbContext.SaveChangesAsync(cancellationToken);
 
             return Result.Success;
         }
