@@ -4,4 +4,5 @@
     <Deploy />
   </Project>
   <Project Path="Vivcord.Server/Vivcord.Server.csproj" />
+  <Project Path="Vivcord.xUnit/Vivcord.xUnit.csproj" Id="25f51e1f-1f1e-4384-879f-d0c675c62651" />
 </Solution>
