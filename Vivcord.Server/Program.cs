@@ -11,6 +11,7 @@ using Vivcord.Server.Infastructure.Jwt;
 using Vivcord.Server.Infastructure.SignalR;
 using Vivcord.Server.Models;
 using Vivcord.Server.Services;
+using Vivcord.Server.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,16 +43,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<MainDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 //Identity and roles
-builder.Services.AddIdentityCore<AppUser>(options =>
-{
-    options.Password.RequireDigit = true;
-    options.Password.RequiredLength = 6;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequireUppercase = false;
-})
-.AddRoles<IdentityRole<Guid>>()
-.AddEntityFrameworkStores<MainDbContext>()
-.AddDefaultTokenProviders();
+builder.Services.AddVivcordIdentity();
 //JWT
 var jwtSetting = builder.Configuration.GetSection("JwtSetting");
 var key = Encoding.UTF8.GetBytes(jwtSetting["Key"]!);
