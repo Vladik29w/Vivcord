@@ -1,0 +1,9 @@
+bin
+obj
+.vs
+*.user
+*.suo
+*.csproj.user
+Properties/launchSettings.json
+appsettings.Development.json
+CHANGELOG.md

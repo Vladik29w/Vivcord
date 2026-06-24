@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -29,7 +29,7 @@
     <PackageReference Include="Scalar.AspNetCore" Version="2.14.11" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(DOTNET_RUNNING_IN_CONTAINER)' != 'true'">
     <ProjectReference Include="..\vivcord.client\vivcord.client.esproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>

@@ -16,7 +16,7 @@ export class PrivateHubService {
 
   public connectToHub() {
     this._hubConntection = new HubConnectionBuilder()
-      .withUrl(`https://localhost:7048/hubs/private`, {
+      .withUrl(`${environment.apiUrl}/hubs/private`, {
         withCredentials: true
       })
       .withAutomaticReconnect()
@@ -49,7 +49,7 @@ export class PrivateHubService {
         return messageId;
       }
       catch (err) {
-        console.log(err); 
+        console.log(err);
         throw err;
       }
     }

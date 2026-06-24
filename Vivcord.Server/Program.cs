@@ -33,7 +33,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAngularOrigin",
         policy =>
         {
-            policy.WithOrigins("https://localhost:62667", "https://127.0.0.1:62667")
+            policy.WithOrigins("https://localhost:62667", "https://127.0.0.1:62667", "http://localhost:4200")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -97,7 +97,10 @@ app.MapScalarApiReference(options =>
         .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
 });
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors("AllowAngularOrigin");
 

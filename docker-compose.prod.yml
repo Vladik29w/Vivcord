@@ -1,0 +1,36 @@
+services:
+  # ── Frontend (Angular + Nginx) ──
+  frontend:
+    build:
+      context: ./vivcord.client
+      dockerfile: Dockerfile
+    container_name: vivcord-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - vivcord-network
+    restart: unless-stopped
+
+  # ── Backend (ASP.NET Core) ──
+  backend:
+    build:
+      context: ./Vivcord.Server
+      dockerfile: Dockerfile
+    container_name: vivcord-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - JwtSetting__Key=${JWT_KEY}
+      - JwtSetting__VivcordServer=${JWT_ISSUER}
+      - JwtSetting__VivcordClient=${JWT_AUDIENCE}
+    networks:
+      - vivcord-network
+    restart: unless-stopped
+
+networks:
+  vivcord-network:
+    driver: bridge

@@ -1,15 +1,17 @@
-﻿namespace Vivcord.Server.Infastructure.Jwt
+namespace Vivcord.Server.Infastructure.Jwt
 {
     public static class CookieManager
     {
         private const string Jwt = "jwt";
         private const string RefToken = "refToken";
 
+        private static bool IsDevelopment => Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+
         private static CookieOptions GetOptions(DateTimeOffset? expires = null) => new()
         {
             HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
+            Secure = !IsDevelopment,
+            SameSite = IsDevelopment ? SameSiteMode.Lax : SameSiteMode.None,
             Expires = expires
         };
 
