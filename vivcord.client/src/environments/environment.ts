@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'http://localhost:5000',
+  apiUrl: 'https://vivcord-app.jollygrass-610e0673.polandcentral.azurecontainerapps.io',
 };

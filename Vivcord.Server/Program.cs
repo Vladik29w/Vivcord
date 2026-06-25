@@ -1,17 +1,16 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Azure.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;
 using Vivcord.Server.DbContext;
+using Vivcord.Server.Extensions;
 using Vivcord.Server.Hubs;
 using Vivcord.Server.Infastructure.Jwt;
 using Vivcord.Server.Infastructure.SignalR;
-using Vivcord.Server.Models;
 using Vivcord.Server.Services;
-using Vivcord.Server.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,7 +22,17 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContactService, ContactService>();
 builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
-builder.Services.AddSignalR();
+
+var signalRBuilder = builder.Services.AddSignalR();
+var azureSignalRConnectionString = builder.Configuration.GetConnectionString("AzureSignalR");
+if (!string.IsNullOrWhiteSpace(azureSignalRConnectionString))
+{
+    signalRBuilder.AddAzureSignalR(options =>
+    {
+        options.ConnectionString = azureSignalRConnectionString;
+    });
+}
+
 builder.Services.AddSingleton<IUserIdProvider, LowercaseUserIdProvider>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -33,7 +42,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAngularOrigin",
         policy =>
         {
-            policy.WithOrigins("https://localhost:62667", "https://127.0.0.1:62667", "http://localhost:4200")
+            var corsOrigins = builder.Configuration["CorsOrigins"];
+            var allowedOrigins = new List<string> { "https://localhost:62667", "https://127.0.0.1:62667", "http://localhost:4200" };
+            policy.WithOrigins([.. allowedOrigins])
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
