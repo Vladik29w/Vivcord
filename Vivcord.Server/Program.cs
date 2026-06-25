@@ -37,14 +37,18 @@ builder.Services.AddSingleton<IUserIdProvider, LowercaseUserIdProvider>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 // CORS
+var corsOrigins = builder.Configuration["CorsOrigins"];
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularOrigin",
         policy =>
         {
-            var corsOrigins = builder.Configuration["CorsOrigins"];
-            var allowedOrigins = new List<string> { "https://localhost:62667", "https://127.0.0.1:62667", "http://localhost:4200" };
-            policy.WithOrigins([.. allowedOrigins])
+            var origins = new List<string> { "https://localhost:62667", "https://127.0.0.1:62667", "http://localhost:4200" };
+            if (!string.IsNullOrEmpty(corsOrigins))
+            {
+                origins.AddRange(corsOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(o => o.Trim()));
+            }
+            policy.WithOrigins(origins.ToArray())
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
