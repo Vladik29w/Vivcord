@@ -1,9 +1,6 @@
 services:
-  # ── Frontend (Angular Dev Server) ──
   frontend:
     build:
-      context: ./vivcord.client
-      dockerfile: Dockerfile
       target: build
     container_name: vivcord-frontend-dev
     ports:
@@ -17,15 +14,10 @@ services:
     command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000
     depends_on:
       - backend
-    networks:
-      - vivcord-network
     restart: unless-stopped
 
-  # ── Backend (ASP.NET Core Watch) ──
   backend:
     build:
-      context: ./Vivcord.Server
-      dockerfile: Dockerfile
       target: build
     container_name: vivcord-backend-dev
     ports:
@@ -35,21 +27,13 @@ services:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=db,1433;Database=VivcordDb;User Id=sa;Password=Vivcord_Dev_2026!;TrustServerCertificate=True;
-      - JwtSetting__Key=CHANGE_ME_dev_super_secret_key_at_least_32_chars!!
+      - ConnectionStrings__DefaultConnection=Server=db,1433;Database=VivcordDb;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True;
+      - JwtSetting__Key=${JWT_SECRET_KEY}
       - JwtSetting__VivcordServer=http://localhost:5000
       - JwtSetting__VivcordClient=http://localhost:4200
-      - DOTNET_USE_POLLING_FILE_WATCHER=1
-    volumes:
-      - ./Vivcord.Server:/src
-      - /src/bin
-      - /src/obj
-    command: dotnet watch run --no-launch-profile --urls http://+:8080
-    networks:
-      - vivcord-network
     restart: unless-stopped
 
-  # ── Database (MSSQL 2025) ──
+  #DB
   db:
     image: mcr.microsoft.com/mssql/server:2025-latest
     container_name: vivcord-db-dev
@@ -57,13 +41,13 @@ services:
       - "1433:1433"
     environment:
       - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=Vivcord_Dev_2026!
-    volumes:
-      - mssql-data:/var/opt/mssql
+      - MSSQL_SA_PASSWORD=${DB_SA_PASSWORD}
     networks:
       - vivcord-network
+    volumes:
+      - mssql-data:/var/opt/mssql
     healthcheck:
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Vivcord_Dev_2026!" -C -Q "SELECT 1" -b -o /dev/null
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${DB_SA_PASSWORD}" -C -Q "SELECT 1" -b -o /dev/null
       interval: 10s
       timeout: 5s
       retries: 10
@@ -73,7 +57,3 @@ services:
 volumes:
   mssql-data:
     driver: local
-
-networks:
-  vivcord-network:
-    driver: bridge

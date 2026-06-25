@@ -1,0 +1,20 @@
+services:
+  #Frontend
+  frontend:
+    build:
+      context: ./vivcord.client
+      dockerfile: Dockerfile
+    networks:
+      - vivcord-network
+
+  #Backend
+  backend:
+    build:
+      context: ./Vivcord.Server
+      dockerfile: Dockerfile
+    networks:
+      - vivcord-network
+
+networks:
+  vivcord-network:
+    driver: bridge

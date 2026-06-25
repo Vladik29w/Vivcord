@@ -1,4 +1,7 @@
 <Solution>
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
   <Project Path="vivcord.client/vivcord.client.esproj">
     <Build />
     <Deploy />
