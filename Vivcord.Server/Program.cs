@@ -22,6 +22,7 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContactService, ContactService>();
 builder.Services.AddScoped<IMessagingService, MessagingService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddSingleton<IVoiceChatService, VoiceChatService>();
 
 var signalRBuilder = builder.Services.AddSignalR();
 var azureSignalRConnectionString = builder.Configuration.GetConnectionString("AzureSignalR");

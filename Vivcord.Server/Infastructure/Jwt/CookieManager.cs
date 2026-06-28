@@ -4,14 +4,11 @@ namespace Vivcord.Server.Infastructure.Jwt
     {
         private const string Jwt = "jwt";
         private const string RefToken = "refToken";
-
-        private static bool IsDevelopment => Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
-
         private static CookieOptions GetOptions(DateTimeOffset? expires = null) => new()
         {
             HttpOnly = true,
-            Secure = !IsDevelopment,
-            SameSite = IsDevelopment ? SameSiteMode.Lax : SameSiteMode.None,
+            Secure = true,
+            SameSite = SameSiteMode.None,
             Expires = expires
         };
 
