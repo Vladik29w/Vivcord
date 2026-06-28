@@ -22,6 +22,7 @@
     "@angular/router": "^21.2.0",
     "@microsoft/signalr": "^10.0.0",
     "jest-editor-support": "*",
+    "livekit-client": "^2.20.0",
     "run-script-os": "*",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"

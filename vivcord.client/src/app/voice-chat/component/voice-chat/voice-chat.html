@@ -1,0 +1,90 @@
+<div class="voice-chat-container">
+  @if (livekitService.error(); as errorMessage) {
+    <div class="voice-chat-error">
+      <span class="error-icon">⚠️</span>
+      <span class="error-message">{{ errorMessage }}</span>
+    </div>
+  }
+
+  @if (!livekitService.isConnected()) {
+    <div class="voice-chat-join-screen">
+      <h2>Voice Chat: {{ roomName() }}</h2>
+      <button 
+        [disabled]="isJoining()" 
+        (click)="join()" 
+        class="btn-join">
+        @if (isJoining()) {
+          <span class="spinner"></span> Joining...
+        } @else {
+          Join Voice Room
+        }
+      </button>
+    </div>
+  } @else {
+    <div class="voice-chat-active-screen">
+      <div class="voice-chat-header">
+        <div class="room-info">
+          <h3>{{ roomName() }}</h3>
+          <span class="participant-count">
+            {{ livekitService.participantCount() }} active peer(s)
+          </span>
+        </div>
+        
+        <div class="voice-chat-controls">
+          <button 
+            (click)="livekitService.toggleMic()" 
+            [class.muted]="livekitService.isMuted()"
+            class="btn-control btn-mic" 
+            [attr.aria-label]="livekitService.isMuted() ? 'Unmute' : 'Mute'">
+            @if (livekitService.isMuted()) {
+              <span class="icon">🔇</span> Unmute
+            } @else {
+              <span class="icon">🎙️</span> Mute
+            }
+          </button>
+          
+          <button 
+            (click)="leave()" 
+            class="btn-control btn-leave">
+            <span class="icon">🚪</span> Leave
+          </button>
+        </div>
+      </div>
+
+      <div class="participants-section">
+        <h4>Participants</h4>
+        <div class="participants-list">
+          <!-- Local Participant -->
+          <div class="participant-card local" [class.speaking]="!livekitService.isMuted()">
+            <div class="avatar">You</div>
+            <div class="participant-name">You (Local)</div>
+            <div class="participant-status">
+              @if (livekitService.isMuted()) {
+                <span class="status-badge muted">Muted</span>
+              } @else {
+                <span class="status-badge speaking-badge">Active</span>
+              }
+            </div>
+          </div>
+
+          <!-- Remote Participants -->
+          @for (participant of livekitService.participants(); track participant.identity) {
+            <div class="participant-card" [class.speaking]="participant.isSpeaking">
+              <div class="avatar">{{ participant.identity.substring(0, 2).toUpperCase() }}</div>
+              <div class="participant-name">{{ participant.identity }}</div>
+              <div class="participant-status">
+                @if (participant.isSpeaking) {
+                  <span class="status-badge speaking-badge">Speaking</span>
+                }
+              </div>
+            </div>
+          } @empty {
+            <div class="no-participants">
+              Waiting for others to join...
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

@@ -4,6 +4,7 @@ import { PrivateHubComponent } from '../app/private-hub/component/private-hub'
 import { FriendListComponent } from '../app/friend-list/component/friend-list';
 import { LoginComponent } from '../app/account/components/login.component/login';
 import { RegisterComponent } from '../app/account/components/register.component/register';
+import { VoiceChatComponent } from './voice-chat/component/voice-chat/voice-chat';
 
 export const routes: Routes = [
   {
@@ -27,5 +28,9 @@ export const routes: Routes = [
   {
     path: 'register',
     component: RegisterComponent
+  },
+  {
+    path: 'voice-chat/:roomName',
+    component: VoiceChatComponent
   }
 ];
