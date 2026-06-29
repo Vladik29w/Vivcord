@@ -27,6 +27,20 @@ export class LiveKitService {
     try {
       await this.room.connect(url, token);
       await this.room.localParticipant.setMicrophoneEnabled(true);
+      const initialParticipants: VoiceParticipant[] = [];
+      this.room.remoteParticipants.forEach(participant => {
+        initialParticipants.push({ identity: participant.identity, isSpeaking: false });
+        participant.trackPublications.forEach(pub => {
+          if (pub.isSubscribed && pub.track) {
+            this.onTrackSubscribed(pub.track);
+          }
+        });
+      });
+      this.participants.update((list) => {
+        const existingIdentities = new Set(list.map(p => p.identity));
+        const newParticipants = initialParticipants.filter(p => !existingIdentities.has(p.identity));
+        return [...list, ...newParticipants];
+      });
       this.isConnected.set(true);
     }
     catch (err) {
