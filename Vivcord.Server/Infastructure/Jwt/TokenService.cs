@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using System.Data;
 using System.IdentityModel.Tokens.Jwt;
@@ -22,7 +22,8 @@ namespace Vivcord.Server.Infastructure.Jwt
             {
                 new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? string.Empty),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty)
+                new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+                new Claim("displayName", user.DisplayName ?? string.Empty)
             };
 
             var roles = await userManager.GetRolesAsync(user);

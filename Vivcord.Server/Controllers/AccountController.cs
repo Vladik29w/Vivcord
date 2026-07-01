@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -76,6 +76,7 @@ namespace Vivcord.Server.Controllers
         {
             var email = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue(JwtRegisteredClaimNames.Email);
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+            var displayName = User.FindFirstValue("displayName") ?? string.Empty;
 
             if (string.IsNullOrEmpty(email))
                 return BadRequest("User email claim not found.");
@@ -92,6 +93,7 @@ namespace Vivcord.Server.Controllers
             {
                 Id = userId,
                 Email = email,
+                DisplayName = displayName,
                 Roles = roles
             });
         }

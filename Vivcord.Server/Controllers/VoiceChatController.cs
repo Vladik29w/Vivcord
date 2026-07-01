@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Vivcord.Server.Controllers.Main;
 using Vivcord.Server.Services;
 
@@ -13,7 +13,7 @@ namespace Vivcord.Server.Controllers
         {
             try
             {
-                var token = voiceChatService.GenerateToken(request.RoomName, request.Identity);
+                var token = voiceChatService.GenerateToken(request.RoomName, request.Identity, request.DisplayName);
                 return Ok(new { token });
             }
             catch (Exception ex)
@@ -22,5 +22,5 @@ namespace Vivcord.Server.Controllers
             }
         }
     }
-    public record GenerateTokenRequest(string RoomName, string Identity);
+    public record GenerateTokenRequest(string RoomName, string Identity, string DisplayName);
 }
