@@ -4,6 +4,12 @@ namespace Vivcord.Server.Models
 {
     public class AppUser : IdentityUser<Guid>
     {
+        private string? _displayName;
+        public string DisplayName
+        {
+            get => string.IsNullOrWhiteSpace(_displayName) ? UserName! : _displayName;
+            set => _displayName = value;
+        }
         public ICollection<AppUserFriend> Friends { get; set; } = new List<AppUserFriend>();
     }
     public class AppUserFriend
