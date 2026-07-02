@@ -1,11 +1,11 @@
 export interface GenerateTokenRequest {
   roomName: string;
-  identity: string;
+  userName: string;
 }
 export interface VoiceTokenResponse {
   token: string;
 }
-export interface Participant {
+export interface VoiceParticipant {
   identity: string;
   isSpeaking: boolean;
 }

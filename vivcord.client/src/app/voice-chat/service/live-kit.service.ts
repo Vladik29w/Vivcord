@@ -1,6 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Room, RoomEvent, RemoteTrack, Track, RoomOptions, Participant } from 'livekit-client';
-import { Participant as VoiceParticipant } from '../dto/voice-chat.dto';
+import { VoiceParticipant } from '../dto/voice-chat.dto';
 @Injectable({
   providedIn: 'root',
 })

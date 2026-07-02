@@ -23,8 +23,7 @@ export class VoiceChatComponent implements OnDestroy {
     this.isJoining.set(true);
     try {
       const token = await this.fetchToken(this.roomName());
-      const url = 'wss://lk.vivcord.live';
-      await this.livekitService.connect(url, token);
+      await this.livekitService.connect(environment.liveKitUrl, token);
     } finally {
       this.isJoining.set(false);
     }
@@ -37,11 +36,11 @@ export class VoiceChatComponent implements OnDestroy {
   private async fetchToken(roomName: string): Promise<string> {
     try {
       const user = this.accountService.currentUser();
-      const identity = user ? user.id : 'anonymous_' + Math.random().toString(36).substring(7);
+      const identity = user ? user.id : 'unknown';
 
       const requestBody: GenerateTokenRequest = {
         roomName: roomName,
-        identity: identity
+        userName: identity
       };
 
       const res$ = this.http.post<VoiceTokenResponse>(
