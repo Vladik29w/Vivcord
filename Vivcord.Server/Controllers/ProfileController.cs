@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Vivcord.Server.Controllers.Main;
 using Vivcord.Server.DbContext;
+using Vivcord.Server.DTO;
 using Vivcord.Server.Services;
 
 namespace Vivcord.Server.Controllers
@@ -10,14 +11,14 @@ namespace Vivcord.Server.Controllers
     public class ProfileController(IProfileService profileService) : ApiMainController
     {
         [HttpPut("display-name")]
-        public async Task<IActionResult> ChangeDisplayName([FromBody] ChangeDisplayNameRequest request, CancellationToken ct)
+        public async Task<IActionResult> ChangeDisplayName(ProfileDTO profile, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(request.DisplayName))
+            if (string.IsNullOrWhiteSpace(profile.DisplayName))
                 return Problem("DisplayName is required", statusCode: StatusCodes.Status400BadRequest);
 
             try
             {
-                await profileService.ChangeUserDisplayName(request.UserId, request.DisplayName, ct);
+                await profileService.ChangeUserDisplayName(profile.UserId, profile.DisplayName, ct);
                 return Ok();
             }
             catch (Exception ex)
@@ -26,6 +27,4 @@ namespace Vivcord.Server.Controllers
             }
         }
     }
-
-    public record ChangeDisplayNameRequest(Guid UserId, string DisplayName);
 }

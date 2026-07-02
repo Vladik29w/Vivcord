@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Vivcord.Server.Controllers.Main;
+using Vivcord.Server.DTO;
 using Vivcord.Server.Services;
 
 namespace Vivcord.Server.Controllers
@@ -9,11 +10,11 @@ namespace Vivcord.Server.Controllers
     public class VoiceChatController(IVoiceChatService voiceChatService) : ApiMainController
     {
         [HttpPost("VoiceToken")]
-        public IActionResult GenerateToken([FromBody] GenerateTokenRequest request)
+        public IActionResult GenerateToken(VoiceTokenDTO voiceToken)
         {
             try
             {
-                var token = voiceChatService.GenerateToken(request.RoomName, request.Identity, request.DisplayName);
+                var token = voiceChatService.GenerateToken(voiceToken);
                 return Ok(new { token });
             }
             catch (Exception ex)
@@ -22,5 +23,4 @@ namespace Vivcord.Server.Controllers
             }
         }
     }
-    public record GenerateTokenRequest(string RoomName, string Identity, string DisplayName);
 }
