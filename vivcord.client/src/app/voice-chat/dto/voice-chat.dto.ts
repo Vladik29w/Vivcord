@@ -1,6 +1,7 @@
 export interface GenerateTokenRequest {
   roomName: string;
-  userName: string;
+  identity: string;
+  displayName: string;
 }
 export interface VoiceTokenResponse {
   token: string;

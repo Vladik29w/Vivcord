@@ -37,10 +37,12 @@ export class VoiceChatComponent implements OnDestroy {
     try {
       const user = this.accountService.currentUser();
       const identity = user ? user.id : 'unknown';
+      const displayName = user ? user.displayName : 'Anonymous';
 
       const requestBody: GenerateTokenRequest = {
         roomName: roomName,
-        userName: identity
+        identity: identity,
+        displayName: displayName
       };
 
       const res$ = this.http.post<VoiceTokenResponse>(

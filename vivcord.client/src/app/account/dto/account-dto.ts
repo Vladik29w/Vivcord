@@ -1,6 +1,7 @@
 export interface UserDTO {
   id: string
   email: string
+  displayName: string
   roles: string[]
 };
 export interface RegisterDTO {

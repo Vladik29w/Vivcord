@@ -1,6 +1,8 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { Room, RoomEvent, RemoteTrack, Track, RoomOptions, Participant } from 'livekit-client';
+import { Room, RoomEvent, RemoteTrack, Track, RoomOptions, Participant, LocalAudioTrack } from 'livekit-client';
 import { VoiceParticipant } from '../dto/voice-chat.dto';
+import { DenoiseTrackProcessor } from 'livekit-rnnoise-processor';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -10,9 +12,12 @@ export class LiveKitService {
   readonly isMuted = signal(false);
   readonly participants = signal<VoiceParticipant[]>([]);
   readonly error = signal<string | null>(null);
+  readonly isNoiseFilterEnabled = signal(true);
   readonly participantCount = computed(() => this.participants().length);
+
   async connect(url: string, token: string): Promise<void> {
     this.error.set(null);
+
     const options: RoomOptions = {
       adaptiveStream: true,
       dynacast: true,
@@ -21,12 +26,27 @@ export class LiveKitService {
         noiseSuppression: true,
         autoGainControl: true,
       }
-    }
+    };
+
     this.room = new Room(options);
     this.registerEvents(this.room);
     try {
       await this.room.connect(url, token);
       await this.room.localParticipant.setMicrophoneEnabled(true);
+
+      if (this.isNoiseFilterEnabled()) {
+        const trackPub = this.room.localParticipant.getTrackPublication(Track.Source.Microphone);
+        if (trackPub && trackPub.track) {
+          const track = trackPub.track as LocalAudioTrack;
+          const audioCtx = new AudioContext();
+          if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+          }
+          track.setAudioContext(audioCtx);
+          await track.setProcessor(new DenoiseTrackProcessor());
+        }
+      }
+
       const initialParticipants: VoiceParticipant[] = [];
       this.room.remoteParticipants.forEach(participant => {
         initialParticipants.push({ identity: participant.identity, isSpeaking: false });
@@ -70,6 +90,37 @@ export class LiveKitService {
       this.isMuted.set(!currentlyMuted);
     } catch (err) {
       this.error.set(`Failed to toggle microphone: ${err}`);
+      throw err;
+    }
+  }
+  async toggleNoiseFilter(): Promise<void> {
+    if (!this.room || !this.room.localParticipant) {
+      return;
+    }
+    try {
+      const trackPub = this.room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      if (trackPub && trackPub.track) {
+        const track = trackPub.track as LocalAudioTrack;
+        const currentlyEnabled = this.isNoiseFilterEnabled();
+        
+        if (currentlyEnabled) {
+          await track.stopProcessor();
+          this.isNoiseFilterEnabled.set(false);
+        } else {
+          let audioCtx = (track as any).audioContext;
+          if (!audioCtx) {
+            audioCtx = new AudioContext();
+          }
+          if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+          }
+          track.setAudioContext(audioCtx);
+          await track.setProcessor(new DenoiseTrackProcessor());
+          this.isNoiseFilterEnabled.set(true);
+        }
+      }
+    } catch (err) {
+      this.error.set(`Failed to toggle noise filter: ${err}`);
       throw err;
     }
   }

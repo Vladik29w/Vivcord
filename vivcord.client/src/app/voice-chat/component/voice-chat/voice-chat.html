@@ -36,6 +36,16 @@
           }
         </button>
 
+
+        <button (click)="livekitService.toggleNoiseFilter()" [class.active]="livekitService.isNoiseFilterEnabled()"
+          class="btn-control btn-krisp" [attr.aria-label]="livekitService.isNoiseFilterEnabled() ? 'Disable Noise Filter' : 'Enable Noise Filter'">
+          @if (livekitService.isNoiseFilterEnabled()) {
+          <span class="icon"></span> Filter ON
+          } @else {
+          <span class="icon"></span> Filter OFF
+          }
+        </button>
+
         <button (click)="leave()" class="btn-control btn-leave">
           <span class="icon"></span> Leave
         </button>
