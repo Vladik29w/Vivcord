@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.Models;
@@ -23,7 +23,7 @@ namespace Vivcord.Server.Hubs
             dbContext.UserMessages.Add(userMessage);
             await dbContext.SaveChangesAsync();
 
-            await Clients.User(normalizedTargetUserId).SendAsync("ReciveMessage", senderId, text, userMessage.id);
+            await Clients.User(normalizedTargetUserId).SendAsync("ReceiveMessage", senderId, text, userMessage.id);
             return userMessage.id;
         }
     }

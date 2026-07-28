@@ -1,9 +1,10 @@
-import { Component, inject, signal, OnInit, computed, DestroyRef } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { PrivateHubService } from '../service/private-hub.service';
+import { switchMap, tap } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
-import { messageDTO } from '../dto/message-dto';
+import { PrivateHubService } from '../service/private-hub.service';
 import { AccountService } from '@account/service/account.service';
+import { MessageDTO } from '../../shared/messaging/dto/message.dto';
 
 @Component({
   selector: 'app-private-hub',
@@ -11,83 +12,96 @@ import { AccountService } from '@account/service/account.service';
   templateUrl: './private-hub.html',
   styleUrl: './private-hub.css',
 })
-export class PrivateHubComponent implements OnInit {
-  private route = inject(ActivatedRoute);
-  private chatService = inject(PrivateHubService);
-  private accountService = inject(AccountService);
-  private destroyRef = inject(DestroyRef);
+export class PrivateHubComponent implements OnInit, OnDestroy {
+  private readonly route = inject(ActivatedRoute);
+  private readonly chatService = inject(PrivateHubService);
+  private readonly accountService = inject(AccountService);
+  private readonly destroyRef = inject(DestroyRef);
 
-  public senderId = computed(() => this.accountService.currentUser()?.id);
-  public targetUserId = signal<string | null>(null);
-  public currentUsername = signal<string>('');
-  public currentUserNickname = computed(() => {
+  public readonly senderId = computed(() => this.accountService.currentUser()?.id);
+
+  public readonly currentUserNickname = computed(() => {
     const email = this.accountService.currentUser()?.email;
     return email ? email.split('@')[0] : 'Ви';
   });
-  public messages = signal<messageDTO[]>([]);
 
-  ngOnInit() {
-    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
-      const username = params.get('username');
-      if (username) {
-        this.currentUsername.set(username);
-        localStorage.setItem('lastChat', username);
+  public readonly targetUserId = signal<string | null>(null);
+  public readonly currentUsername = signal<string>('');
+  public readonly messages = signal<MessageDTO[]>([]);
 
-        this.chatService.loadUserProfile(username, (userId) => {
-          this.targetUserId.set(userId);
-          this.chatService.loadChatHistory(userId, (history) => {
-            this.messages.set(history);
-          });
-        });
-      }
-    });
-
+  ngOnInit(): void {
     this.chatService.connectToHub();
-
-    this.chatService.messageReceived$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(msg => {
-      if (msg.senderId === this.targetUserId()) {
-        const fullMsg: messageDTO = {
-          ...msg,
-          id: msg.id || crypto.randomUUID(),
-          status: "sent"
-        };
-        this.messages.update(m => [...m, fullMsg]);
-      } else {
-        console.log("new message from: ", msg.senderId);//TODO: make it toast
-      }
-    });
+    this.subscribeToRoute();
+    this.subscribeToIncomingMessages();
   }
 
-  public async send(text: string) {
-    const id = this.targetUserId();
+  ngOnDestroy(): void {
+    this.chatService.disconnect();
+  }
+
+  public async send(text: string): Promise<void> {
+    const targetId = this.targetUserId();
     const myId = this.senderId();
 
-    if (id && text.trim() && myId) {
-      const tempId = crypto.randomUUID();
+    if (!targetId || !text.trim() || !myId) return;
 
-      this.messages.update((msgs) => [
-        ...msgs,
-        {
-          id: tempId,
-          senderId: myId,
-          text: text,
-          status: 'sending'
-        }
-      ]);
+    const tempId = crypto.randomUUID();
 
-      try {
-        const realId = await this.chatService.sendMessage(id, text);
-        if (realId) {
-          this.messages.update((msg) =>
-            msg.map((m) => m.id === tempId ? { ...m, id: realId, status: 'sent' } : m)
-          );
-        }
-      } catch (err) {
-        console.error('Failed to send message:', err);
-        this.messages.update((msg) =>
-          msg.map((m) => m.id === tempId ? { ...m, status: 'error' } : m)
-        );
-      }
+    this.messages.update(msgs => [
+      ...msgs,
+      { id: tempId, senderId: myId, text, status: 'sending' },
+    ]);
+
+    try {
+      const realId = await this.chatService.sendMessage(targetId, text);
+      this.messages.update(msgs =>
+        msgs.map(m => (m.id === tempId ? { ...m, id: realId, status: 'sent' } : m))
+      );
+    } catch {
+      this.messages.update(msgs =>
+        msgs.map(m => (m.id === tempId ? { ...m, status: 'error' } : m))
+      );
     }
+  }
+
+  private subscribeToRoute(): void {
+    this.route.paramMap
+      .pipe(
+        tap(params => {
+          const username = params.get('username');
+          if (username) {
+            this.currentUsername.set(username);
+            localStorage.setItem('lastChat', username);
+          }
+        }),
+        switchMap(params => {
+          const username = params.get('username') ?? '';
+          return this.chatService.loadUserProfile(username);
+        }),
+        tap(profile => this.targetUserId.set(profile.id)),
+        switchMap(profile => this.chatService.loadChatHistory(profile.id)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: history => this.messages.set(history),
+        error: err => console.error('[PrivateHubComponent] Failed to load chat:', err),
+      });
+  }
+
+  private subscribeToIncomingMessages(): void {
+    this.chatService.messageReceived$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(msg => {
+        if (msg.senderId === this.targetUserId()) {
+          const fullMsg: MessageDTO = {
+            ...msg,
+            id: msg.id ?? crypto.randomUUID(),
+            status: 'sent',
+          };
+          this.messages.update(m => [...m, fullMsg]);
+        } else {
+          console.log('[PrivateHubComponent] New message from:', msg.senderId); // TODO: toast
+        }
+      });
   }
 }
