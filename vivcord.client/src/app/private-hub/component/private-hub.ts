@@ -28,6 +28,8 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
   public readonly targetUserId = signal<string | null>(null);
   public readonly currentUsername = signal<string>('');
   public readonly messages = signal<MessageDTO[]>([]);
+  public readonly selectedFile = signal<File | null>(null);
+  public readonly isUploading = signal(false);
 
   ngOnInit(): void {
     this.chatService.connectToHub();
@@ -39,28 +41,58 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
     this.chatService.disconnect();
   }
 
+  public onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedFile.set(input.files?.[0] ?? null);
+  }
+
+  public clearFile(): void {
+    this.selectedFile.set(null);
+  }
+
   public async send(text: string): Promise<void> {
     const targetId = this.targetUserId();
     const myId = this.senderId();
+    const file = this.selectedFile();
 
-    if (!targetId || !text.trim() || !myId) return;
+    if (!targetId || (!text.trim() && !file) || !myId) return;
 
     const tempId = crypto.randomUUID();
+    const localPreviewUrl = file ? URL.createObjectURL(file) : undefined;
+    const attachmentType = file
+      ? (file.type.startsWith('video/') ? 'video' : 'image') as 'image' | 'video'
+      : undefined;
 
     this.messages.update(msgs => [
       ...msgs,
-      { id: tempId, senderId: myId, text, status: 'sending' },
+      {
+        id: tempId,
+        senderId: myId,
+        text,
+        status: 'sending',
+        attachmentUrl: localPreviewUrl,
+        attachmentType,
+      },
     ]);
 
+    this.selectedFile.set(null);
+    this.isUploading.set(true);
+
     try {
-      const realId = await this.chatService.sendMessage(targetId, text);
+      const realId = await this.chatService.sendMessageWithAttachment(targetId, text, file ?? undefined);
       this.messages.update(msgs =>
-        msgs.map(m => (m.id === tempId ? { ...m, id: realId, status: 'sent' } : m))
+        msgs.map(m => {
+          if (m.id !== tempId) return m;
+          if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+          return { ...m, id: realId, status: 'sent' };
+        })
       );
     } catch {
       this.messages.update(msgs =>
         msgs.map(m => (m.id === tempId ? { ...m, status: 'error' } : m))
       );
+    } finally {
+      this.isUploading.set(false);
     }
   }
 

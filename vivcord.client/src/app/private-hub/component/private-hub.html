@@ -13,7 +13,27 @@
 
       <div class="message-bubble">
         <strong>{{ msg.senderId === targetUserId() ? currentUsername() : currentUserNickname() }}:</strong>
-        {{ msg.text}}
+
+        @if (msg.text) {
+          <span>{{ msg.text }}</span>
+        }
+
+        @if (msg.attachmentType === 'image' && msg.attachmentUrl) {
+          <br>
+          <img [src]="msg.attachmentUrl" alt="Attachment" style="max-width:300px; max-height:300px; display:block; margin-top:4px;">
+        }
+
+        @if (msg.attachmentType === 'video' && msg.attachmentUrl) {
+          <br>
+          <video [src]="msg.attachmentUrl" controls style="max-width:300px; display:block; margin-top:4px;"></video>
+        }
+
+        @if (msg.status === 'sending') {
+          <small> (sending...)</small>
+        }
+        @if (msg.status === 'error') {
+          <small style="color:red;"> (failed)</small>
+        }
       </div>
 
     </div>
@@ -26,11 +46,26 @@
   </main>
 
   <footer class="chat-input-area">
+
+    <!-- File attachment preview -->
+    @if (selectedFile()) {
+      <div style="padding:4px 0; font-size:0.85em;">
+        📎 {{ selectedFile()!.name }}
+        <button type="button" (click)="clearFile()" style="margin-left:6px;">✕</button>
+      </div>
+    }
+
     <input #msgInput type="text" placeholder="Message..." (keyup.enter)="send(msgInput.value); msgInput.value = ''"
-      autofocus>
-    <button (click)="send(msgInput.value); msgInput.value = ''">
-      Send
+      autofocus [disabled]="isUploading()">
+
+    <!-- Hidden file input, triggered by the attach button -->
+    <input #fileInput type="file" accept="image/*,video/*" style="display:none" (change)="onFileSelected($event)">
+    <button type="button" (click)="fileInput.click()" [disabled]="isUploading()">📎</button>
+
+    <button (click)="send(msgInput.value); msgInput.value = ''" [disabled]="isUploading()">
+      {{ isUploading() ? '...' : 'Send' }}
     </button>
+
   </footer>
 
 </div>

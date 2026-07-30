@@ -1,10 +1,15 @@
 import { inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Subject, Observable } from 'rxjs';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Subject, Observable, firstValueFrom } from 'rxjs';
 import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr';
 import { AccountService } from '@account/service/account.service';
 import { MessageDTO } from '../dto/message.dto';
 import { environment } from '@environments/environment';
+
+interface UploadTokenResponse {
+  uploadUrl: string;
+  blobName: string;
+}
 
 export abstract class MessagingService {
   protected readonly _http = inject(HttpClient);
@@ -27,8 +32,8 @@ export abstract class MessagingService {
 
     this._hubConnection.on(
       'ReceiveMessage',
-      (senderId: string, text: string, messageId: number) => {
-        this.messageReceived$.next({ id: messageId, status: 'sent', senderId, text });
+      (senderId: string, text: string, messageId: number, attachmentUrl?: string, attachmentType?: 'image' | 'video') => {
+        this.messageReceived$.next({ id: messageId, status: 'sent', senderId, text, attachmentUrl, attachmentType });
       }
     );
 
@@ -42,17 +47,60 @@ export abstract class MessagingService {
     });
   }
 
-  public async sendMessage(targetId: string, text: string): Promise<number> {
+  public async sendMessage(
+    targetId: string,
+    text: string,
+    blobName?: string,
+    attachmentType?: 'image' | 'video'
+  ): Promise<number> {
     if (this._hubConnection?.state !== HubConnectionState.Connected) {
       throw new Error('[MessagingService] Hub is not connected.');
     }
 
     try {
-      return await this._hubConnection.invoke<number>('SendMessage', text, targetId);
+      return await this._hubConnection.invoke<number>('SendMessage', text, targetId, blobName ?? null, attachmentType ?? null);
     } catch (err) {
       console.error('[MessagingService] sendMessage failed:', err);
       throw err;
     }
+  }
+  public getUploadToken(fileName: string, contentType: string): Observable<UploadTokenResponse> {
+    return this._http.post<UploadTokenResponse>(
+      `${this._apiUrl}/Media/upload-token`,
+      { fileName, contentType },
+      { withCredentials: true }
+    );
+  }
+
+  public uploadToBlob(sasUrl: string, file: File): Observable<void> {
+    const headers = new HttpHeaders({
+      'x-ms-blob-type': 'BlockBlob',
+      'Content-Type': file.type,
+    });
+    return this._http.put<void>(sasUrl, file, { headers });
+  }
+
+  /**
+   * Orchestrates the full media send flow:
+   * 1. Request SAS upload token from backend
+   * 2. PUT file directly to Azure Blob Storage
+   * 3. Send SignalR message with blob name
+   */
+  public async sendMessageWithAttachment(
+    targetId: string,
+    text: string,
+    file?: File
+  ): Promise<number> {
+    if (!file) {
+      return this.sendMessage(targetId, text);
+    }
+
+    const attachmentType: 'image' | 'video' = file.type.startsWith('video/') ? 'video' : 'image';
+
+    const tokenResponse = await firstValueFrom(this.getUploadToken(file.name, file.type));
+    await firstValueFrom(this.uploadToBlob(tokenResponse.uploadUrl, file));
+
+    return this.sendMessage(targetId, text, tokenResponse.blobName, attachmentType);
   }
 
   public loadChatHistory(targetId: string): Observable<MessageDTO[]> {
