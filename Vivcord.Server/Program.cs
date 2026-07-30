@@ -25,6 +25,10 @@ builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddSingleton<IVoiceChatService, VoiceChatService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 
+// BlobStorageService builds BlobClient internally with StorageSharedKeyCredential (read from config)
+// which is required for CanGenerateSasUri == true. Registered as Singleton — stateless, thread-safe.
+builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
+
 var signalRBuilder = builder.Services.AddSignalR();
 var azureSignalRConnectionString = builder.Configuration.GetConnectionString("AzureSignalR");
 if (!string.IsNullOrWhiteSpace(azureSignalRConnectionString))

@@ -8,7 +8,7 @@ namespace Vivcord.Server.Hubs
     [Authorize]
     public class PrivateHub(MainDbContext dbContext, TimeProvider timeProvider) : Hub
     {
-        public async Task<int> SendMessage(string text, string targetUserId)
+        public async Task<int> SendMessage(string text, string targetUserId, string? blobName, string? attachmentType)
         {
             var senderId = Context.UserIdentifier!;
             var normalizedTargetUserId = targetUserId.ToLowerInvariant();
@@ -18,12 +18,15 @@ namespace Vivcord.Server.Hubs
                 Text = text,
                 Sender = Guid.Parse(senderId),
                 Target = Guid.Parse(normalizedTargetUserId),
-                SentAt = timeProvider.GetUtcNow()
+                SentAt = timeProvider.GetUtcNow(),
+                AttachmentUrl = blobName,
+                AttachmentType = attachmentType,
             };
             dbContext.UserMessages.Add(userMessage);
             await dbContext.SaveChangesAsync();
 
-            await Clients.User(normalizedTargetUserId).SendAsync("ReceiveMessage", senderId, text, userMessage.id);
+            await Clients.User(normalizedTargetUserId).SendAsync(
+                "ReceiveMessage", senderId, text, userMessage.id, blobName, attachmentType);
             return userMessage.id;
         }
     }

@@ -294,6 +294,12 @@ namespace Vivcord.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
 
+                    b.Property<string>("AttachmentType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AttachmentUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("Sender")
                         .HasColumnType("uniqueidentifier");
 
