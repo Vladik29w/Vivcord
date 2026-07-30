@@ -23,6 +23,7 @@ namespace Vivcord.Server.Services
             {
                 UserName = register.Name,
                 Email = register.Email,
+                DisplayName = register.Name!
             };
             var res = await manager.CreateAsync(user, register.Password);
             if (!res.Succeeded)

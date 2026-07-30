@@ -1,15 +1,10 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 
 namespace Vivcord.Server.Models
 {
     public class AppUser : IdentityUser<Guid>
     {
-        private string? _displayName;
-        public string DisplayName
-        {
-            get => string.IsNullOrWhiteSpace(_displayName) ? UserName! : _displayName;
-            set => _displayName = value;
-        }
+        public string DisplayName { get; set; } = string.Empty;
         public ICollection<AppUserFriend> Friends { get; set; } = new List<AppUserFriend>();
     }
     public class AppUserFriend
