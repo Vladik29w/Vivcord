@@ -1,15 +1,27 @@
 import { Routes } from '@angular/router';
 import { HomeComponent } from '../app/home-component/home-component';
-import { PrivateHubComponent } from '../app/private-hub/component/private-hub'
+import { PrivateHubComponent } from '../app/private-hub/component/private-hub';
 import { FriendListComponent } from '../app/friend-list/component/friend-list';
 import { LoginComponent } from '../app/account/components/login.component/login';
 import { RegisterComponent } from '../app/account/components/register.component/register';
 import { VoiceChatComponent } from './voice-chat/component/voice-chat/voice-chat';
+import { authGuard, guestGuard } from './auth.guard';
 
 export const routes: Routes = [
   {
+    path: 'login',
+    component: LoginComponent,
+    canActivate: [guestGuard]
+  },
+  {
+    path: 'register',
+    component: RegisterComponent,
+    canActivate: [guestGuard]
+  },
+  {
     path: '',
     component: HomeComponent,
+    canActivate: [authGuard],
     children: [
       {
         path: 'chat/:username',
@@ -19,18 +31,16 @@ export const routes: Routes = [
   },
   {
     path: 'friends',
-    component: FriendListComponent
-  },
-  {
-    path: 'login',
-    component: LoginComponent
-  },
-  {
-    path: 'register',
-    component: RegisterComponent
+    component: FriendListComponent,
+    canActivate: [authGuard]
   },
   {
     path: 'voice-chat/:roomName',
-    component: VoiceChatComponent
+    component: VoiceChatComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: '**',
+    redirectTo: ''
   }
 ];

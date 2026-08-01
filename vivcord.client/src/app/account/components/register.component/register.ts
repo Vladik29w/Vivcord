@@ -1,11 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
-import { Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Router, RouterLink } from '@angular/router';
 import { AccountService } from '@account/service/account.service';
 import { RegisterDTO } from '@account/dto/account-dto';
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
@@ -51,7 +52,11 @@ export class RegisterComponent {
       },
       error: (err) => {
         this.isLoading.set(false);
-        this.error.set('Registration failed');
+        if (err instanceof HttpErrorResponse && err.status === 409) {
+          this.error.set('Email is already registered');
+        } else {
+          this.error.set('Registration failed');
+        }
       }
     })
   }

@@ -20,7 +20,9 @@ namespace Vivcord.xUnit.AccountTests
         {
             var services = new ServiceCollection();
 
-            services.AddDbContext<MainDbContext>(options => options.UseInMemoryDatabase("TestDatabase"));
+            // Use unique database name per test instance to prevent shared state
+            var dbName = $"TestDatabase_{Guid.NewGuid()}";
+            services.AddDbContext<MainDbContext>(options => options.UseInMemoryDatabase(dbName));
 
             services.AddVivcordIdentity();
 
@@ -40,8 +42,11 @@ namespace Vivcord.xUnit.AccountTests
             using (var scope = serviceProvider.CreateScope())
             {
                 var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-                roleManager.CreateAsync(new IdentityRole<Guid>("User")).GetAwaiter().GetResult();
-                roleManager.CreateAsync(new IdentityRole<Guid>("Admin")).GetAwaiter().GetResult();
+                // Check if roles already exist before creating
+                if (roleManager.FindByNameAsync("User").GetAwaiter().GetResult() == null)
+                    roleManager.CreateAsync(new IdentityRole<Guid>("User")).GetAwaiter().GetResult();
+                if (roleManager.FindByNameAsync("Admin").GetAwaiter().GetResult() == null)
+                    roleManager.CreateAsync(new IdentityRole<Guid>("Admin")).GetAwaiter().GetResult();
             }
 
             _userManager = serviceProvider.GetRequiredService<UserManager<AppUser>>();
@@ -226,6 +231,31 @@ namespace Vivcord.xUnit.AccountTests
             Assert.False(result1.IsError);
             Assert.False(result2.IsError);
             Assert.NotEqual(result1.Value.RefreshToken, result2.Value.RefreshToken);
+        }
+
+        [Fact]
+        public async Task Fail_Register_DuplicateEmail()
+        {
+            // Arrange
+            var firstRegisterDto = new RegisterDTO
+            {
+                Name = "FirstUser",
+                Email = "duplicate@test.com",
+                Password = "Password123"
+            };
+            await _accountService.UserRegister(firstRegisterDto);
+
+            var secondRegisterDto = new RegisterDTO
+            {
+                Name = "SecondUser",
+                Email = "duplicate@test.com",
+                Password = "Password123"
+            };
+            // Act
+            var result = await _accountService.UserRegister(secondRegisterDto);
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal("EmailAlreadyRegistered", result.Errors.First().Code);
         }
     }
 }

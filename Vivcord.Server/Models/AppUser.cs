@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Vivcord.Server.Models
 {
+    [Index(nameof(Email), IsUnique = true)]
+    [Index(nameof(NormalizedEmail), IsUnique = true)]
     public class AppUser : IdentityUser<Guid>
     {
         public string DisplayName { get; set; } = string.Empty;

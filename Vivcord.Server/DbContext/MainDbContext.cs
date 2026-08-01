@@ -33,7 +33,7 @@ namespace Vivcord.Server.DbContext
                 .HasOne(uf => uf.Friend)
                 .WithMany()
                 .HasForeignKey(uf => uf.FriendId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

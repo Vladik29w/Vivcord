@@ -19,6 +19,12 @@ namespace Vivcord.Server.Services
     {
         public async Task<ErrorOr<UserTokensDTO>> UserRegister(RegisterDTO register, CancellationToken ct = default)
         {
+            var existingUser = await manager.FindByEmailAsync(register.Email);
+            if (existingUser != null)
+            {
+                return Error.Conflict(code: "EmailAlreadyRegistered", description: "Email is already registered");
+            }
+
             var user = new AppUser
             {
                 UserName = register.Name,
