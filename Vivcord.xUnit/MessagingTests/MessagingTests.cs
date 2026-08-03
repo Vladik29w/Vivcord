@@ -1,0 +1,169 @@
+using Microsoft.EntityFrameworkCore;
+using Moq;
+using Vivcord.Server.DbContext;
+using Vivcord.Server.DTO;
+using Vivcord.Server.Services.MessagingServices;
+
+namespace Vivcord.xUnit.MessagingTests;
+
+public class MessageSendingServiceTests
+{
+    private static MainDbContext CreateDbContext()
+    {
+        var options = new DbContextOptionsBuilder<MainDbContext>()
+            .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
+            .Options;
+        return new MainDbContext(options);
+    }
+
+    private static TimeProvider FrozenTime(DateTimeOffset frozen)
+    {
+        var mock = new Mock<TimeProvider>();
+        mock.Setup(t => t.GetUtcNow()).Returns(frozen);
+        return mock.Object;
+    }
+
+    [Fact]
+    public async Task SendPrivateMessageAsync_Persists_Message_To_Database()
+    {
+        // Arrange
+        await using var db = CreateDbContext();
+        var service = new MessageSendingService(db, TimeProvider.System);
+
+        var dto = new MessageDto
+        {
+            Id = 0,
+            SenderId = Guid.NewGuid(),
+            TargetUserId = Guid.NewGuid(),
+            Text = "Hello!",
+            AttachmentUrl = null,
+            AttachmentType = null
+        };
+
+        // Act
+        await service.SendPrivateMessageAsync(dto);
+
+        // Assert
+        var saved = await db.UserMessages.FirstOrDefaultAsync();
+        Assert.NotNull(saved);
+        Assert.Equal("Hello!", saved.Text);
+    }
+
+    [Fact]
+    public async Task SendPrivateMessageAsync_Correctly_Maps_SenderId_And_TargetUserId()
+    {
+        // Arrange
+        await using var db = CreateDbContext();
+        var service = new MessageSendingService(db, TimeProvider.System);
+
+        var senderGuid = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var targetGuid = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        var dto = new MessageDto
+        {
+            Id = 0,
+            SenderId = senderGuid,
+            TargetUserId = targetGuid,
+            Text = "Valid Guids mapping test",
+            AttachmentUrl = null,
+            AttachmentType = null
+        };
+
+        // Act
+        var result = await service.SendPrivateMessageAsync(dto);
+
+        // Assert
+        Assert.Equal(senderGuid, result.Sender);
+        Assert.Equal(targetGuid, result.Target);
+    }
+
+    [Fact]
+    public async Task SendPrivateMessageAsync_Uses_TimeProvider_For_SentAt()
+    {
+        // Arrange
+        var frozenNow = new DateTimeOffset(2025, 1, 15, 10, 30, 0, TimeSpan.Zero);
+
+        await using var db = CreateDbContext();
+        var service = new MessageSendingService(db, FrozenTime(frozenNow));
+
+        var dto = new MessageDto
+        {
+            Id = 0,
+            SenderId = Guid.NewGuid(),
+            TargetUserId = Guid.NewGuid(),
+            Text = "Timestamp test",
+            AttachmentUrl = null,
+            AttachmentType = null
+        };
+
+        // Act
+        var result = await service.SendPrivateMessageAsync(dto);
+
+        // Assert
+        Assert.Equal(frozenNow, result.SentAt);
+    }
+
+    [Fact]
+    public async Task SendPrivateMessageAsync_Supports_Null_Attachment()
+    {
+        // Arrange
+        await using var db = CreateDbContext();
+        var service = new MessageSendingService(db, TimeProvider.System);
+
+        var dto = new MessageDto
+        {
+            Id = 0,
+            SenderId = Guid.NewGuid(),
+            TargetUserId = Guid.NewGuid(),
+            Text = "No attachment",
+            AttachmentUrl = null,
+            AttachmentType = null
+        };
+
+        // Act
+        var result = await service.SendPrivateMessageAsync(dto);
+
+        // Assert
+        Assert.Null(result.AttachmentUrl);
+        Assert.Null(result.AttachmentType);
+    }
+
+    [Fact]
+    public async Task SendPrivateMessageAsync_Each_Call_Creates_Separate_Row()
+    {
+        // Arrange
+        await using var db = CreateDbContext();
+        var service = new MessageSendingService(db, TimeProvider.System);
+
+        var senderA = Guid.NewGuid();
+        var senderB = Guid.NewGuid();
+        var target  = Guid.NewGuid();
+
+        var dto1 = new MessageDto
+        {
+            Id = 0,
+            SenderId = senderA,
+            TargetUserId = target,
+            Text = "First",
+            AttachmentUrl = null,
+            AttachmentType = null
+        };
+        var dto2 = new MessageDto
+        {
+            Id = 0,
+            SenderId = senderB,
+            TargetUserId = target,
+            Text = "Second",
+            AttachmentUrl = null,
+            AttachmentType = null
+        };
+
+        // Act
+        await service.SendPrivateMessageAsync(dto1);
+        await service.SendPrivateMessageAsync(dto2);
+
+        // Assert
+        var count = await db.UserMessages.CountAsync();
+        Assert.Equal(2, count);
+    }
+}
