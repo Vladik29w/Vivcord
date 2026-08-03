@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
@@ -18,7 +18,7 @@ namespace Vivcord.Server.Services
                 .Where(u => u.UserName == username)
                 .Select(u => new FindUserDTO
                 {
-                    Id = u.Id.ToString().ToLower(),
+                    Id = u.Id.ToString(),
                     Name = u.UserName!
                 })
                 .FirstOrDefaultAsync();

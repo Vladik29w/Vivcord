@@ -2,13 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
 
-namespace Vivcord.Server.Services
+namespace Vivcord.Server.Services.MessagingServices
 {
     public interface IMessagingService
     {
         Task<IReadOnlyList<MessageDto>> GetChatHistory(string currentUserId, string targetUserId, CancellationToken cancellationToken = default);
     }
-    public class MessagingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessagingService
+    public class MessageRedingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessagingService
     {
         public async Task<IReadOnlyList<MessageDto>> GetChatHistory(string currentUserId, string targetUserId, CancellationToken cancellationToken = default)
         {
@@ -22,7 +22,7 @@ namespace Vivcord.Server.Services
                 .Select(m => new
                 {
                     m.id,
-                    SenderId = m.Sender.ToString().ToLower(),
+                    m.Sender,
                     m.Text,
                     m.AttachmentUrl,
                     m.AttachmentType,
@@ -38,7 +38,15 @@ namespace Vivcord.Server.Services
                     sasReadUrl = result.IsError ? null : result.Value;
                 }
 
-                return new MessageDto(m.id, m.SenderId, m.Text, sasReadUrl, m.AttachmentType);
+                return new MessageDto
+                {
+                    Id = m.id,
+                    SenderId = m.Sender,
+                    TargetUserId = Guid.Empty,
+                    Text = m.Text,
+                    AttachmentUrl = sasReadUrl,
+                    AttachmentType = m.AttachmentType
+                };
             }).ToList();
         }
     }

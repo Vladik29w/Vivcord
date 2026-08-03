@@ -1,33 +1,32 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using Vivcord.Server.DbContext;
-using Vivcord.Server.Models;
+using Vivcord.Server.DTO;
+using Vivcord.Server.Services.MessagingServices;
 
 namespace Vivcord.Server.Hubs
 {
     [Authorize]
-    public class PrivateHub(MainDbContext dbContext, TimeProvider timeProvider) : Hub
+    public class PrivateHub(IMessageSendingService messageSendingService) : Hub
     {
-        public async Task<int> SendMessage(string text, string targetUserId, string? blobName, string? attachmentType)
+        public async Task<int> SendMessage(SendPrivateMessageDto dto)
         {
             var senderId = Context.UserIdentifier!;
-            var normalizedTargetUserId = targetUserId.ToLowerInvariant();
 
-            var userMessage = new UserMessage
+            var messageDto = new MessageDto
             {
-                Text = text,
-                Sender = Guid.Parse(senderId),
-                Target = Guid.Parse(normalizedTargetUserId),
-                SentAt = timeProvider.GetUtcNow(),
-                AttachmentUrl = blobName,
-                AttachmentType = attachmentType,
+                Id = 0,
+                SenderId = Guid.Parse(senderId),
+                TargetUserId = Guid.Parse(dto.TargetUserId),
+                Text = dto.Text,
+                AttachmentUrl = dto.AttachmentUrl,
+                AttachmentType = dto.AttachmentType
             };
-            dbContext.UserMessages.Add(userMessage);
-            await dbContext.SaveChangesAsync();
+            var savedMessage = await messageSendingService.SendPrivateMessageAsync(messageDto, Context.ConnectionAborted);
 
-            await Clients.User(normalizedTargetUserId).SendAsync(
-                "ReceiveMessage", senderId, text, userMessage.id, blobName, attachmentType);
-            return userMessage.id;
+            await Clients.User(dto.TargetUserId).SendAsync(
+                "ReceiveMessage", senderId, dto.Text, savedMessage.id, dto.AttachmentUrl, dto.AttachmentType);
+
+            return savedMessage.id;
         }
     }
 }
