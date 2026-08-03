@@ -1,5 +1,12 @@
 namespace Vivcord.Server.DTO
 {
-    public record MessageDto(int Id, string SenderId, string Text, string? AttachmentUrl, string? AttachmentType);
+    public record MessageDto
+    {
+        public int Id { get; set; }
+        public Guid SenderId { get; set; }
+        public Guid TargetUserId { get; set; }
+        public string Text { get; set; }
+        public string? AttachmentUrl { get; set; }
+        public string? AttachmentType { get; set; }
+    }
 }
-

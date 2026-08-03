@@ -58,7 +58,12 @@ export abstract class MessagingService {
     }
 
     try {
-      return await this._hubConnection.invoke<number>('SendMessage', text, targetId, blobName ?? null, attachmentType ?? null);
+      return await this._hubConnection.invoke<number>('SendMessage', {
+        targetUserId: targetId,
+        text,
+        attachmentUrl: blobName ?? null,
+        attachmentType: attachmentType ?? null,
+      });
     } catch (err) {
       console.error('[MessagingService] sendMessage failed:', err);
       throw err;

@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Vivcord.Server.Controllers.Main;
-using Vivcord.Server.Services;
+using Vivcord.Server.Services.MessagingServices;
 
 namespace Vivcord.Server.Controllers
 {

@@ -9,8 +9,8 @@ using Vivcord.Server.DbContext;
 using Vivcord.Server.Extensions;
 using Vivcord.Server.Hubs;
 using Vivcord.Server.Infastructure.Jwt;
-using Vivcord.Server.Infastructure.SignalR;
 using Vivcord.Server.Services;
+using Vivcord.Server.Services.MessagingServices;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,7 +20,8 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContactService, ContactService>();
-builder.Services.AddScoped<IMessagingService, MessagingService>();
+builder.Services.AddScoped<IMessagingService, MessageRedingService>();
+builder.Services.AddScoped<IMessageSendingService, MessageSendingService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddSingleton<IVoiceChatService, VoiceChatService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
@@ -39,7 +40,6 @@ if (!string.IsNullOrWhiteSpace(azureSignalRConnectionString))
     });
 }
 
-builder.Services.AddSingleton<IUserIdProvider, LowercaseUserIdProvider>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 // CORS
