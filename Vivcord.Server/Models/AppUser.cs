@@ -9,6 +9,8 @@ namespace Vivcord.Server.Models
     {
         public string DisplayName { get; set; } = string.Empty;
         public ICollection<AppUserFriend> Friends { get; set; } = new List<AppUserFriend>();
+        public ICollection<GroupChatMember> GroupMemberships { get; set; } = new List<GroupChatMember>();
+        public ICollection<GroupChat> AdminiedGroups { get; set; } = new List<GroupChat>();
     }
     public class AppUserFriend
     {

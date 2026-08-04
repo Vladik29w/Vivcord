@@ -19,5 +19,16 @@ namespace Vivcord.Server.Controllers
             var history = await messagingService.GetChatHistory(currentUserId, targetUserId, cancellationToken);
             return Ok(history);
         }
+        [HttpGet("group-history/{groupId}")]
+        public async Task<IActionResult> GetGroupChatHistory(int groupId, CancellationToken cancellationToken)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (currentUserId == null)
+                return Unauthorized();
+
+            var history = await messagingService.GetGroupChatHistory(currentUserId, groupId, cancellationToken);
+            return Ok(history);
+        }
     }
 }

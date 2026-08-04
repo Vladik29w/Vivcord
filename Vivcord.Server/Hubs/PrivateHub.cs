@@ -12,7 +12,7 @@ namespace Vivcord.Server.Hubs
         {
             var senderId = Context.UserIdentifier!;
 
-            var messageDto = new MessageDto
+            var messageDto = new PrivateMessageDto
             {
                 Id = 0,
                 SenderId = Guid.Parse(senderId),

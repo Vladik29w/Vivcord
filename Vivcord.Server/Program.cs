@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.Azure.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -25,6 +24,7 @@ builder.Services.AddScoped<IMessageSendingService, MessageSendingService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddSingleton<IVoiceChatService, VoiceChatService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IGroupChatService, GroupChatService>();
 
 // BlobStorageService builds BlobClient internally with StorageSharedKeyCredential (read from config)
 // which is required for CanGenerateSasUri == true. Registered as Singleton — stateless, thread-safe.
@@ -147,6 +147,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapHub<PrivateHub>("/hubs/private");
+app.MapHub<GroupChatHub>("/hubs/group");
 
 app.MapFallbackToFile("/index.html");
 

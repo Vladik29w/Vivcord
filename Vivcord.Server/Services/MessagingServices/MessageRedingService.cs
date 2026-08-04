@@ -6,16 +6,17 @@ namespace Vivcord.Server.Services.MessagingServices
 {
     public interface IMessagingService
     {
-        Task<IReadOnlyList<MessageDto>> GetChatHistory(string currentUserId, string targetUserId, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<PrivateMessageDto>> GetChatHistory(string currentUserId, string targetUserId, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(string currentUserId, int groupId, CancellationToken cancellationToken = default);
     }
     public class MessageRedingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessagingService
     {
-        public async Task<IReadOnlyList<MessageDto>> GetChatHistory(string currentUserId, string targetUserId, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<PrivateMessageDto>> GetChatHistory(string currentUserId, string targetUserId, CancellationToken cancellationToken = default)
         {
-            var currentGuid = Guid.Parse(currentUserId);
+            var currentGuid = Guid.Parse(currentUserId);//TODO
             var targetGuid = Guid.Parse(targetUserId);
 
-            var messages = await dbContext.UserMessages
+            var messages = await dbContext.PrivateMessages
                 .Where(m => (m.Sender == currentGuid && m.Target == targetGuid) ||
                             (m.Sender == targetGuid && m.Target == currentGuid))
                 .OrderBy(m => m.SentAt)
@@ -38,11 +39,51 @@ namespace Vivcord.Server.Services.MessagingServices
                     sasReadUrl = result.IsError ? null : result.Value;
                 }
 
-                return new MessageDto
+                return new PrivateMessageDto
                 {
                     Id = m.id,
                     SenderId = m.Sender,
                     TargetUserId = Guid.Empty,
+                    Text = m.Text,
+                    AttachmentUrl = sasReadUrl,
+                    AttachmentType = m.AttachmentType
+                };
+            }).ToList();
+        }
+
+        public async Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(string currentUserId, int groupId, CancellationToken cancellationToken = default)
+        {
+            var messages = await (from m in dbContext.GroupMessages
+                                  where m.GroupId == groupId
+                                  join u in dbContext.Users on m.Sender equals u.Id into usersGroup
+                                  from u in usersGroup.DefaultIfEmpty()
+                                  orderby m.SentAt
+                                  select new
+                                  {
+                                      m.id,
+                                      m.Sender,
+                                      SenderName = u != null ? u.UserName : null,
+                                      m.GroupId,
+                                      m.Text,
+                                      m.AttachmentUrl,
+                                      m.AttachmentType,
+                                  }).ToListAsync(cancellationToken);
+
+            return messages.Select(m =>
+            {
+                string? sasReadUrl = null;
+                if (m.AttachmentUrl is not null)
+                {
+                    var result = blobStorageService.GenerateSasReadUrl(m.AttachmentUrl);
+                    sasReadUrl = result.IsError ? null : result.Value;
+                }
+
+                return new GroupMessageDto
+                {
+                    Id = m.id,
+                    SenderId = m.Sender,
+                    SenderName = m.SenderName,
+                    GroupId = m.GroupId,
                     Text = m.Text,
                     AttachmentUrl = sasReadUrl,
                     AttachmentType = m.AttachmentType

@@ -9,8 +9,12 @@ namespace Vivcord.Server.DbContext
     {
         public MainDbContext(DbContextOptions<MainDbContext> options) : base(options) { }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
-        public DbSet<UserMessage> UserMessages { get; set; }
+        public DbSet<PrivateMessage> PrivateMessages { get; set; }
+        public DbSet<GroupMessage> GroupMessages { get; set; }
         public DbSet<AppUserFriend> UserFriends { get; set; }
+        public DbSet<GroupChat> GroupChats { get; set; }
+        public DbSet<GroupChatMember> GroupChatMembers { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -20,6 +24,7 @@ namespace Vivcord.Server.DbContext
                 new IdentityRole<Guid> { Id = Guid.Parse("c7b013f0-5201-4317-bcc8-c21ff591658d"), Name = "User", NormalizedName = "USER", ConcurrencyStamp = "2" }
             );
 
+            // AppUserFriend relationships
             builder.Entity<AppUserFriend>()
             .HasKey(uf => new { uf.UserId, uf.FriendId });
 
@@ -33,6 +38,36 @@ namespace Vivcord.Server.DbContext
                 .HasOne(uf => uf.Friend)
                 .WithMany()
                 .HasForeignKey(uf => uf.FriendId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // GroupChatMember relationships
+            builder.Entity<GroupChatMember>()
+                .HasKey(gcm => new { gcm.GroupChatId, gcm.UserId });
+
+            builder.Entity<GroupChatMember>()
+                .HasOne(gcm => gcm.GroupChat)
+                .WithMany(gc => gc.Members)
+                .HasForeignKey(gcm => gcm.GroupChatId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<GroupChatMember>()
+                .HasOne(gcm => gcm.User)
+                .WithMany(u => u.GroupMemberships)
+                .HasForeignKey(gcm => gcm.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // GroupChat admin relationship
+            builder.Entity<GroupChat>()
+                .HasOne(gc => gc.Admin)
+                .WithMany(u => u.AdminiedGroups)
+                .HasForeignKey(gc => gc.adminId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // GroupMessage relationship
+            builder.Entity<GroupMessage>()
+                .HasOne<GroupChat>()
+                .WithMany(gc => gc.Messages)
+                .HasForeignKey(gm => gm.GroupId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }
