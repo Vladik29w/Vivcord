@@ -1,7 +1,10 @@
 <div class="friend-list-container">
   <div class="friend-list-header">
-    <h2>Friends list</h2>
+    <h2>Chats</h2>
   </div>
+
+  <!-- Friends section -->
+  <div class="section-title">Friends</div>
 
   <div class="add-friend-section">
     <input
@@ -21,7 +24,7 @@
   <div class="friends-list">
     @if (friendList().length === 0) {
       <div class="empty-state">
-        <p>You dont have any friends</p>
+        <p>No friends yet</p>
       </div>
     } @else {
       <ul class="friend-items">
@@ -38,9 +41,48 @@
             <button
               (click)="removeFriend(friend.userName)"
               class="btn btn-remove"
-              title="Delete"
+              title="Remove"
             >
               ✕
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  <!-- Groups section -->
+  <div class="section-title" style="margin-top:16px;">Groups</div>
+
+  <div class="add-friend-section">
+    <input
+      type="text"
+      #groupNameInput
+      placeholder="Group name"
+      class="friend-input"
+    />
+    <button
+      (click)="createGroup(groupNameInput.value); groupNameInput.value = ''"
+      class="btn btn-add"
+    >
+      Create
+    </button>
+  </div>
+
+  <div class="friends-list">
+    @if (groupList().length === 0) {
+      <div class="empty-state">
+        <p>No groups yet</p>
+      </div>
+    } @else {
+      <ul class="friend-items">
+        @for (group of groupList(); track group.id) {
+          <li class="friend-item">
+            <button
+              (click)="navigateToGroup(group.id)"
+              class="friend-name-btn"
+            >
+              # {{ group.name }}
             </button>
           </li>
         }

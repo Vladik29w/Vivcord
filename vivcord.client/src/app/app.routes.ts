@@ -5,6 +5,7 @@ import { FriendListComponent } from '../app/friend-list/component/friend-list';
 import { LoginComponent } from '../app/account/components/login.component/login';
 import { RegisterComponent } from '../app/account/components/register.component/register';
 import { VoiceChatComponent } from './voice-chat/component/voice-chat/voice-chat';
+import { GroupHubComponent } from './group-hub/component/group-hub';
 import { authGuard, guestGuard } from './auth.guard';
 
 export const routes: Routes = [
@@ -26,6 +27,10 @@ export const routes: Routes = [
       {
         path: 'chat/:username',
         component: PrivateHubComponent
+      },
+      {
+        path: 'group/:groupId',
+        component: GroupHubComponent
       }
     ]
   },

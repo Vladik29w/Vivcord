@@ -32,8 +32,8 @@ export abstract class MessagingService {
 
     this._hubConnection.on(
       'ReceiveMessage',
-      (senderId: string, text: string, messageId: number, attachmentUrl?: string, attachmentType?: 'image' | 'video') => {
-        this.messageReceived$.next({ id: messageId, status: 'sent', senderId, text, attachmentUrl, attachmentType });
+      (senderId: string, text: string, messageId: number, attachmentUrl?: string, attachmentType?: 'image' | 'video', senderName?: string) => {
+        this.messageReceived$.next({ id: messageId, status: 'sent', senderId, senderName, text, attachmentUrl, attachmentType });
       }
     );
 
@@ -45,6 +45,13 @@ export abstract class MessagingService {
         });
       }
     });
+  }
+
+  protected async invokeHub<T>(methodName: string, ...args: unknown[]): Promise<T> {
+    if (this._hubConnection?.state !== HubConnectionState.Connected) {
+      throw new Error('[MessagingService] Hub is not connected.');
+    }
+    return this._hubConnection.invoke<T>(methodName, ...args);
   }
 
   public async sendMessage(

@@ -1,6 +1,7 @@
 export interface MessageDTO {
   id: string | number;
   senderId: string;
+  senderName?: string;
   text: string;
   status: MessageStatus;
   attachmentUrl?: string;

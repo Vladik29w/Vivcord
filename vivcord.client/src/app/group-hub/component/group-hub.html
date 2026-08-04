@@ -1,0 +1,79 @@
+@if (groupId()) {
+<div class="chat-container">
+
+  <header class="chat-header">
+    <h2>Group: {{ groupInfo()?.name ?? groupId() }}</h2>
+    @if (isAdmin()) {
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input #addInput type="text" placeholder="Add user by username" style="padding:4px 8px;">
+        <button (click)="addMember(addInput.value); addInput.value = ''">Add Member</button>
+      </div>
+    }
+  </header>
+
+  <main class="chat-messages">
+    @for (msg of messages(); track $index) {
+    <div class="message-row" [class.my-message]="msg.senderId === senderId()"
+      [class.their-message]="msg.senderId !== senderId()">
+
+      <div class="message-bubble">
+        <strong>{{ msg.senderId === senderId() ? currentUserNickname() : (msg.senderName || msg.senderId) }}:</strong>
+
+        @if (msg.text) {
+          <span>{{ msg.text }}</span>
+        }
+
+        @if (msg.attachmentType === 'image' && msg.attachmentUrl) {
+          <br>
+          <img [src]="msg.attachmentUrl" alt="Attachment" style="max-width:300px; max-height:300px; display:block; margin-top:4px;">
+        }
+
+        @if (msg.attachmentType === 'video' && msg.attachmentUrl) {
+          <br>
+          <video [src]="msg.attachmentUrl" controls style="max-width:300px; display:block; margin-top:4px;"></video>
+        }
+
+        @if (msg.status === 'sending') {
+          <small> (sending...)</small>
+        }
+        @if (msg.status === 'error') {
+          <small style="color:red;"> (failed)</small>
+        }
+      </div>
+
+    </div>
+
+    } @empty {
+    <div class="chat-empty">
+      Group chat is empty
+    </div>
+    }
+  </main>
+
+  <footer class="chat-input-area">
+
+    @if (selectedFile()) {
+      <div style="padding:4px 0; font-size:0.85em;">
+        📎 {{ selectedFile()!.name }}
+        <button type="button" (click)="clearFile()" style="margin-left:6px;">✕</button>
+      </div>
+    }
+
+    <input #msgInput type="text" placeholder="Message..." (keyup.enter)="send(msgInput.value); msgInput.value = ''"
+      autofocus [disabled]="isUploading()">
+
+    <input #fileInput type="file" accept="image/*,video/*" style="display:none" (change)="onFileSelected($event)">
+    <button type="button" (click)="fileInput.click()" [disabled]="isUploading()">📎</button>
+
+    <button (click)="send(msgInput.value); msgInput.value = ''" [disabled]="isUploading()">
+      {{ isUploading() ? '...' : 'Send' }}
+    </button>
+
+  </footer>
+
+</div>
+} @else {
+<div class="loading-screen">
+  Loading group...
+</div>
+}
