@@ -6,19 +6,16 @@ namespace Vivcord.Server.Services.MessagingServices
 {
     public interface IMessagingService
     {
-        Task<IReadOnlyList<PrivateMessageDto>> GetChatHistory(string currentUserId, string targetUserId, CancellationToken cancellationToken = default);
-        Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(string currentUserId, int groupId, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<PrivateMessageDto>> GetChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default);
     }
     public class MessageRedingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessagingService
     {
-        public async Task<IReadOnlyList<PrivateMessageDto>> GetChatHistory(string currentUserId, string targetUserId, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<PrivateMessageDto>> GetChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default)
         {
-            var currentGuid = Guid.Parse(currentUserId);//TODO
-            var targetGuid = Guid.Parse(targetUserId);
-
             var messages = await dbContext.PrivateMessages
-                .Where(m => (m.Sender == currentGuid && m.Target == targetGuid) ||
-                            (m.Sender == targetGuid && m.Target == currentGuid))
+                .Where(m => (m.Sender == currentUserId && m.Target == targetUserId) ||
+                            (m.Sender == targetUserId && m.Target == currentUserId))
                 .OrderBy(m => m.SentAt)
                 .Select(m => new
                 {
@@ -51,7 +48,7 @@ namespace Vivcord.Server.Services.MessagingServices
             }).ToList();
         }
 
-        public async Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(string currentUserId, int groupId, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default)
         {
             var messages = await (from m in dbContext.GroupMessages
                                   where m.GroupId == groupId
