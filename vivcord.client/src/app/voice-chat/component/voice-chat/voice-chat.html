@@ -7,20 +7,19 @@
 
   @if (!livekitService.isConnected()) {
   <div class="voice-chat-join-screen">
-    <h2>Voice Chat: {{ roomName() }}</h2>
-    <button [disabled]="isJoining()" (click)="join()" class="btn-join">
-      @if (isJoining()) {
-      <span class="spinner"></span> Joining...
-      } @else {
-      Join Voice Room
-      }
-    </button>
+    <h2>Voice Chat</h2>
+    @if (isJoining()) {
+      <div class="connecting-state">
+        <span class="spinner"></span>
+        <p>Connecting...</p>
+      </div>
+    }
   </div>
   } @else {
   <div class="voice-chat-active-screen">
     <div class="voice-chat-header">
       <div class="room-info">
-        <h3>{{ roomName() }}</h3>
+        <h3>Room: {{ roomId() }}</h3>
         <span class="participant-count">
           {{ livekitService.participantCount() }} active peer(s)
         </span>

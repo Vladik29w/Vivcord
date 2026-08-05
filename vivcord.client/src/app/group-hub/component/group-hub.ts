@@ -1,12 +1,13 @@
 import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { switchMap } from 'rxjs';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { GroupHubService } from '../service/group-hub.service';
 import { GroupManagementService } from '../service/group-management.service';
 import { AccountService } from '@account/service/account.service';
 import { MessageDTO } from '../../shared/messaging/dto/message.dto';
 import { GroupChatDTO } from '../dto/group-hub.dto';
+import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.service';
 
 @Component({
   selector: 'app-group-hub',
@@ -15,10 +16,14 @@ import { GroupChatDTO } from '../dto/group-hub.dto';
 })
 export class GroupHubComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly groupService = inject(GroupHubService);
   private readonly groupManagement = inject(GroupManagementService);
   private readonly accountService = inject(AccountService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly voiceCallApi = inject(VoiceCallApiService);
+
+  public readonly isStartingCall = signal(false);
 
   public readonly senderId = computed(() => this.accountService.currentUser()?.id);
   public readonly currentUserNickname = computed(() => {
@@ -46,6 +51,24 @@ export class GroupHubComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.groupService.disconnect();
+  }
+
+  public startVoiceCall(): void {
+    const gId = this.groupId();
+    if (!gId || this.isStartingCall()) return;
+
+    this.isStartingCall.set(true);
+    this.voiceCallApi.initiateGroupCall(gId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ roomId, token }) => {
+          this.router.navigate(['/voice-chat'], { queryParams: { roomId, token } });
+        },
+        error: err => {
+          console.error('[GroupHub] Voice call failed:', err);
+          this.isStartingCall.set(false);
+        },
+      });
   }
 
   public onFileSelected(event: Event): void {

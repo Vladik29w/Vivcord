@@ -1,0 +1,1311 @@
+﻿diff --git a/Vivcord.Server/Controllers/MessagingController.cs b/Vivcord.Server/Controllers/MessagingController.cs
+index 9d2814c..2062fa8 100644
+--- a/Vivcord.Server/Controllers/MessagingController.cs
++++ b/Vivcord.Server/Controllers/MessagingController.cs
+@@ -17,7 +17,7 @@ namespace Vivcord.Server.Controllers
+             if (currentUserIdStr == null || !Guid.TryParse(currentUserIdStr, out var currentUserId))
+                 return Unauthorized();
+ 
+-            var history = await messagingService.GetChatHistory(currentUserId, targetUserId, cancellationToken);
++            var history = await messagingService.GetPrivateChatHistory(currentUserId, targetUserId, cancellationToken);
+             return Ok(history);
+         }
+ 
+diff --git a/Vivcord.Server/Controllers/VoiceChatController.cs b/Vivcord.Server/Controllers/VoiceChatController.cs
+index 0e7467f..3ecb602 100644
+--- a/Vivcord.Server/Controllers/VoiceChatController.cs
++++ b/Vivcord.Server/Controllers/VoiceChatController.cs
+@@ -1,5 +1,10 @@
++using Microsoft.AspNetCore.Authorization;
+ using Microsoft.AspNetCore.Mvc;
++using Microsoft.EntityFrameworkCore;
++using System.IdentityModel.Tokens.Jwt;
++using System.Security.Claims;
+ using Vivcord.Server.Controllers.Main;
++using Vivcord.Server.DbContext;
+ using Vivcord.Server.DTO;
+ using Vivcord.Server.Services;
+ 
+@@ -7,20 +12,102 @@ namespace Vivcord.Server.Controllers
+ {
+     [ApiController]
+     [Route("[controller]")]
+-    public class VoiceChatController(IVoiceChatService voiceChatService) : ApiMainController
++    [Authorize]
++    public class VoiceChatController(IVoiceChatService voiceChatService, MainDbContext dbContext) : ApiMainController
+     {
+-        [HttpPost("VoiceToken")]
+-        public IActionResult GenerateToken(VoiceTokenDTO voiceToken)
++        /// <summary>
++        /// Initiates a private voice call between two mutually-friended users.
++        /// Validates that both caller and target have each other in their friend list,
++        /// then generates a Livekit token for a new unique room.
++        /// </summary>
++        [HttpPost("private-call")]
++        public async Task<IActionResult> InitiatePrivateCall(
++            [FromBody] PrivateCallRequestDTO request,
++            CancellationToken cancellationToken)
+         {
+-            try
+-            {
+-                var token = voiceChatService.GenerateToken(voiceToken);
+-                return Ok(new { token });
+-            }
+-            catch (Exception ex)
+-            {
+-                return Problem(detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+-            }
++            var callerId = GetCallerGuid();
++            if (callerId == null) return BadRequest("User id claim not found.");
++
++            var caller = await dbContext.Users
++                .AsNoTracking()
++                .FirstOrDefaultAsync(u => u.Id == callerId.Value, cancellationToken);
++
++            if (caller == null)
++                return NotFound("Caller user not found.");
++
++            var target = await dbContext.Users
++                .AsNoTracking()
++                .FirstOrDefaultAsync(u => u.UserName == request.TargetUsername, cancellationToken);
++
++            if (target == null)
++                return NotFound($"User '{request.TargetUsername}' not found.");
++
++            // Check mutual friendship
++            var callerHasTarget = await dbContext.UserFriends
++                .AnyAsync(uf => uf.UserId == callerId.Value && uf.FriendId == target.Id, cancellationToken);
++
++            var targetHasCaller = await dbContext.UserFriends
++                .AnyAsync(uf => uf.UserId == target.Id && uf.FriendId == callerId.Value, cancellationToken);
++
++            if (!callerHasTarget || !targetHasCaller)
++                return Problem(statusCode: StatusCodes.Status403Forbidden,
++                    detail: "Voice calls are only available between mutual friends.");
++
++            var sortedIds = new[] { callerId.Value, target.Id }.OrderBy(id => id).ToList();
++            var roomId = $"voice_private_{sortedIds[0]}_{sortedIds[1]}";
++            var identity = callerId.Value.ToString();
++            var displayName = caller.UserName ?? identity;
++
++            var token = voiceChatService.GenerateToken(roomId, identity, displayName);
++            return Ok(new VoiceCallResponseDTO(roomId, token));
++        }
++
++        /// <summary>
++        /// Initiates a group voice call for a verified group member.
++        /// Returns the group's stable VoiceRoomId so all members join the same room.
++        /// </summary>
++        [HttpPost("group-call")]
++        public async Task<IActionResult> InitiateGroupCall(
++            [FromBody] GroupCallRequestDTO request,
++            CancellationToken cancellationToken)
++        {
++            var callerId = GetCallerGuid();
++            if (callerId == null) return BadRequest("User id claim not found.");
++
++            var group = await dbContext.GroupChats
++                .AsNoTracking()
++                .FirstOrDefaultAsync(g => g.id == request.GroupId, cancellationToken);
++
++            if (group == null)
++                return NotFound("Group not found.");
++
++            var isMember = await dbContext.GroupChatMembers
++                .AnyAsync(gcm => gcm.GroupChatId == request.GroupId && gcm.UserId == callerId.Value, cancellationToken);
++
++            if (!isMember)
++                return Problem(statusCode: StatusCodes.Status403Forbidden,
++                    detail: "You are not a member of this group.");
++
++            var caller = await dbContext.Users
++                .AsNoTracking()
++                .FirstOrDefaultAsync(u => u.Id == callerId.Value, cancellationToken);
++
++            var roomId = group.VoiceRoomId.ToString();
++            var identity = callerId.Value.ToString();
++            var displayName = caller?.UserName ?? identity;
++
++            var token = voiceChatService.GenerateToken(roomId, identity, displayName);
++            return Ok(new VoiceCallResponseDTO(roomId, token));
++        }
++
++        private Guid? GetCallerGuid()
++        {
++            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
++                         ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
++
++            if (string.IsNullOrEmpty(userId)) return null;
++            if (!Guid.TryParse(userId, out var guid)) return null;
++            return guid;
+         }
+     }
+ }
+diff --git a/Vivcord.Server/DTO/GroupChatDTO.cs b/Vivcord.Server/DTO/GroupChatDTO.cs
+index 7edb734..89dee20 100644
+--- a/Vivcord.Server/DTO/GroupChatDTO.cs
++++ b/Vivcord.Server/DTO/GroupChatDTO.cs
+@@ -1,6 +1,6 @@
+ namespace Vivcord.Server.DTO
+ {
+-    public record GroupChatDTO(int Id, string Name, Guid AdminId, IReadOnlyList<Guid> MemberIds);
++    public record GroupChatDTO(int Id, string Name, Guid AdminId, IReadOnlyList<Guid> MemberIds, Guid VoiceRoomId);
+     public record CreateGroupChatDTO(string Name);
+     public record GroupChatMemberDTO(int GroupChatId, Guid UserId);
+ }
+diff --git a/Vivcord.Server/DTO/SendPrivateMessageDto.cs b/Vivcord.Server/DTO/SendPrivateMessageDto.cs
+index 9eb1cc3..2980808 100644
+--- a/Vivcord.Server/DTO/SendPrivateMessageDto.cs
++++ b/Vivcord.Server/DTO/SendPrivateMessageDto.cs
+@@ -1,4 +1,4 @@
+ namespace Vivcord.Server.DTO
+ {
+-    public record SendPrivateMessageDto(string TargetUserId, string Text, string? AttachmentUrl, string? AttachmentType);
++    public record SendPrivateMessageDto(Guid TargetUserId, string Text, string? AttachmentUrl, string? AttachmentType);
+ }
+diff --git a/Vivcord.Server/DTO/VoiceTokenDTO.cs b/Vivcord.Server/DTO/VoiceTokenDTO.cs
+index 7f08d5b..0e1c1d9 100644
+--- a/Vivcord.Server/DTO/VoiceTokenDTO.cs
++++ b/Vivcord.Server/DTO/VoiceTokenDTO.cs
+@@ -1,4 +1,6 @@
+-﻿namespace Vivcord.Server.DTO
++namespace Vivcord.Server.DTO
+ {
+-    public record VoiceTokenDTO(string RoomName, string Identity, string DisplayName);
++    public record PrivateCallRequestDTO(string TargetUsername);
++    public record GroupCallRequestDTO(int GroupId);
++    public record VoiceCallResponseDTO(string RoomId, string Token);
+ }
+diff --git a/Vivcord.Server/Hubs/PrivateHub.cs b/Vivcord.Server/Hubs/PrivateHub.cs
+index 3c64f51..44564e9 100644
+--- a/Vivcord.Server/Hubs/PrivateHub.cs
++++ b/Vivcord.Server/Hubs/PrivateHub.cs
+@@ -16,14 +16,14 @@ namespace Vivcord.Server.Hubs
+             {
+                 Id = 0,
+                 SenderId = Guid.Parse(senderId),
+-                TargetUserId = Guid.Parse(dto.TargetUserId),
++                TargetUserId = dto.TargetUserId,
+                 Text = dto.Text,
+                 AttachmentUrl = dto.AttachmentUrl,
+                 AttachmentType = dto.AttachmentType
+             };
+             var savedMessage = await messageSendingService.SendPrivateMessageAsync(messageDto, Context.ConnectionAborted);
+ 
+-            await Clients.User(dto.TargetUserId).SendAsync(
++            await Clients.User(dto.TargetUserId.ToString()).SendAsync(
+                 "ReceiveMessage", senderId, dto.Text, savedMessage.id, dto.AttachmentUrl, dto.AttachmentType);
+ 
+             return savedMessage.id;
+diff --git a/Vivcord.Server/Migrations/20260805133509_AddVoiceRoomIdToGroupChat.Designer.cs b/Vivcord.Server/Migrations/20260805133509_AddVoiceRoomIdToGroupChat.Designer.cs
+new file mode 100644
+index 0000000..4aa1a66
+--- /dev/null
++++ b/Vivcord.Server/Migrations/20260805133509_AddVoiceRoomIdToGroupChat.Designer.cs
+@@ -0,0 +1,531 @@
++﻿// <auto-generated />
++using System;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Metadata;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++using Vivcord.Server.DbContext;
++
++#nullable disable
++
++namespace Vivcord.Server.Migrations
++{
++    [DbContext(typeof(MainDbContext))]
++    [Migration("20260805133509_AddVoiceRoomIdToGroupChat")]
++    partial class AddVoiceRoomIdToGroupChat
++    {
++        /// <inheritdoc />
++        protected override void BuildTargetModel(ModelBuilder modelBuilder)
++        {
++#pragma warning disable 612, 618
++            modelBuilder
++                .HasAnnotation("ProductVersion", "10.0.8")
++                .HasAnnotation("Relational:MaxIdentifierLength", 128);
++
++            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
++                {
++                    b.Property<Guid>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("uniqueidentifier");
++
++                    b.Property<string>("ConcurrencyStamp")
++                        .IsConcurrencyToken()
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("Name")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.Property<string>("NormalizedName")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("NormalizedName")
++                        .IsUnique()
++                        .HasDatabaseName("RoleNameIndex")
++                        .HasFilter("[NormalizedName] IS NOT NULL");
++
++                    b.ToTable("AspNetRoles", (string)null);
++
++                    b.HasData(
++                        new
++                        {
++                            Id = new Guid("fab4fac1-c546-41de-aebc-a17da9526085"),
++                            ConcurrencyStamp = "1",
++                            Name = "Admin",
++                            NormalizedName = "ADMIN"
++                        },
++                        new
++                        {
++                            Id = new Guid("c7b013f0-5201-4317-bcc8-c21ff591658d"),
++                            ConcurrencyStamp = "2",
++                            Name = "User",
++                            NormalizedName = "USER"
++                        });
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("ClaimType")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("ClaimValue")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<Guid>("RoleId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("RoleId");
++
++                    b.ToTable("AspNetRoleClaims", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("ClaimType")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("ClaimValue")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<Guid>("UserId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("AspNetUserClaims", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
++                {
++                    b.Property<string>("LoginProvider")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("ProviderKey")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("ProviderDisplayName")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<Guid>("UserId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.HasKey("LoginProvider", "ProviderKey");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("AspNetUserLogins", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
++                {
++                    b.Property<Guid>("UserId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.Property<Guid>("RoleId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.HasKey("UserId", "RoleId");
++
++                    b.HasIndex("RoleId");
++
++                    b.ToTable("AspNetUserRoles", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
++                {
++                    b.Property<Guid>("UserId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.Property<string>("LoginProvider")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("Name")
++                        .HasColumnType("nvarchar(450)");
++
++                    b.Property<string>("Value")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.HasKey("UserId", "LoginProvider", "Name");
++
++                    b.ToTable("AspNetUserTokens", (string)null);
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.AppUser", b =>
++                {
++                    b.Property<Guid>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("uniqueidentifier");
++
++                    b.Property<int>("AccessFailedCount")
++                        .HasColumnType("int");
++
++                    b.Property<string>("ConcurrencyStamp")
++                        .IsConcurrencyToken()
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("DisplayName")
++                        .IsRequired()
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("Email")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.Property<bool>("EmailConfirmed")
++                        .HasColumnType("bit");
++
++                    b.Property<bool>("LockoutEnabled")
++                        .HasColumnType("bit");
++
++                    b.Property<DateTimeOffset?>("LockoutEnd")
++                        .HasColumnType("datetimeoffset");
++
++                    b.Property<string>("NormalizedEmail")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.Property<string>("NormalizedUserName")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.Property<string>("PasswordHash")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("PhoneNumber")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<bool>("PhoneNumberConfirmed")
++                        .HasColumnType("bit");
++
++                    b.Property<string>("SecurityStamp")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<bool>("TwoFactorEnabled")
++                        .HasColumnType("bit");
++
++                    b.Property<string>("UserName")
++                        .HasMaxLength(256)
++                        .HasColumnType("nvarchar(256)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("Email")
++                        .IsUnique()
++                        .HasFilter("[Email] IS NOT NULL");
++
++                    b.HasIndex("NormalizedEmail")
++                        .IsUnique()
++                        .HasDatabaseName("EmailIndex")
++                        .HasFilter("[NormalizedEmail] IS NOT NULL");
++
++                    b.HasIndex("NormalizedUserName")
++                        .IsUnique()
++                        .HasDatabaseName("UserNameIndex")
++                        .HasFilter("[NormalizedUserName] IS NOT NULL");
++
++                    b.ToTable("AspNetUsers", (string)null);
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.AppUserFriend", b =>
++                {
++                    b.Property<Guid>("UserId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.Property<Guid>("FriendId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.HasKey("UserId", "FriendId");
++
++                    b.HasIndex("FriendId");
++
++                    b.ToTable("UserFriends");
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.GroupChat", b =>
++                {
++                    b.Property<int>("id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
++
++                    b.Property<Guid>("VoiceRoomId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.Property<Guid>("adminId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.Property<string>("name")
++                        .IsRequired()
++                        .HasColumnType("nvarchar(max)");
++
++                    b.HasKey("id");
++
++                    b.HasIndex("adminId");
++
++                    b.ToTable("GroupChats");
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.GroupChatMember", b =>
++                {
++                    b.Property<int>("GroupChatId")
++                        .HasColumnType("int");
++
++                    b.Property<Guid>("UserId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.HasKey("GroupChatId", "UserId");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("GroupChatMembers");
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.GroupMessage", b =>
++                {
++                    b.Property<int>("id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
++
++                    b.Property<string>("AttachmentType")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("AttachmentUrl")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<int>("GroupId")
++                        .HasColumnType("int");
++
++                    b.Property<Guid>("Sender")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.Property<DateTimeOffset>("SentAt")
++                        .HasColumnType("datetimeoffset");
++
++                    b.Property<string>("Text")
++                        .IsRequired()
++                        .HasColumnType("nvarchar(max)");
++
++                    b.HasKey("id");
++
++                    b.HasIndex("GroupId");
++
++                    b.ToTable("GroupMessages");
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.PrivateMessage", b =>
++                {
++                    b.Property<int>("id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
++
++                    b.Property<string>("AttachmentType")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<string>("AttachmentUrl")
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<Guid>("Sender")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.Property<DateTimeOffset>("SentAt")
++                        .HasColumnType("datetimeoffset");
++
++                    b.Property<Guid>("Target")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.Property<string>("Text")
++                        .IsRequired()
++                        .HasColumnType("nvarchar(max)");
++
++                    b.HasKey("id");
++
++                    b.ToTable("PrivateMessages");
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.RefreshToken", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("int");
++
++                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
++
++                    b.Property<DateTimeOffset>("Created")
++                        .HasColumnType("datetimeoffset");
++
++                    b.Property<DateTimeOffset>("Expires")
++                        .HasColumnType("datetimeoffset");
++
++                    b.Property<bool>("IsRevoked")
++                        .HasColumnType("bit");
++
++                    b.Property<bool>("IsUsed")
++                        .HasColumnType("bit");
++
++                    b.Property<string>("Token")
++                        .IsRequired()
++                        .HasColumnType("nvarchar(max)");
++
++                    b.Property<Guid>("UserId")
++                        .HasColumnType("uniqueidentifier");
++
++                    b.HasKey("Id");
++
++                    b.ToTable("RefreshTokens");
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
++                {
++                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
++                        .WithMany()
++                        .HasForeignKey("RoleId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
++                {
++                    b.HasOne("Vivcord.Server.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
++                {
++                    b.HasOne("Vivcord.Server.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
++                {
++                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
++                        .WithMany()
++                        .HasForeignKey("RoleId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("Vivcord.Server.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
++                {
++                    b.HasOne("Vivcord.Server.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.AppUserFriend", b =>
++                {
++                    b.HasOne("Vivcord.Server.Models.AppUser", "Friend")
++                        .WithMany()
++                        .HasForeignKey("FriendId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("Vivcord.Server.Models.AppUser", "User")
++                        .WithMany("Friends")
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Restrict)
++                        .IsRequired();
++
++                    b.Navigation("Friend");
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.GroupChat", b =>
++                {
++                    b.HasOne("Vivcord.Server.Models.AppUser", "Admin")
++                        .WithMany("AdminiedGroups")
++                        .HasForeignKey("adminId")
++                        .OnDelete(DeleteBehavior.Restrict)
++                        .IsRequired();
++
++                    b.Navigation("Admin");
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.GroupChatMember", b =>
++                {
++                    b.HasOne("Vivcord.Server.Models.GroupChat", "GroupChat")
++                        .WithMany("Members")
++                        .HasForeignKey("GroupChatId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("Vivcord.Server.Models.AppUser", "User")
++                        .WithMany("GroupMemberships")
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("GroupChat");
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.GroupMessage", b =>
++                {
++                    b.HasOne("Vivcord.Server.Models.GroupChat", null)
++                        .WithMany("Messages")
++                        .HasForeignKey("GroupId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.AppUser", b =>
++                {
++                    b.Navigation("AdminiedGroups");
++
++                    b.Navigation("Friends");
++
++                    b.Navigation("GroupMemberships");
++                });
++
++            modelBuilder.Entity("Vivcord.Server.Models.GroupChat", b =>
++                {
++                    b.Navigation("Members");
++
++                    b.Navigation("Messages");
++                });
++#pragma warning restore 612, 618
++        }
++    }
++}
+diff --git a/Vivcord.Server/Migrations/20260805133509_AddVoiceRoomIdToGroupChat.cs b/Vivcord.Server/Migrations/20260805133509_AddVoiceRoomIdToGroupChat.cs
+new file mode 100644
+index 0000000..4c3e2dc
+--- /dev/null
++++ b/Vivcord.Server/Migrations/20260805133509_AddVoiceRoomIdToGroupChat.cs
+@@ -0,0 +1,30 @@
++﻿using System;
++using Microsoft.EntityFrameworkCore.Migrations;
++
++#nullable disable
++
++namespace Vivcord.Server.Migrations
++{
++    /// <inheritdoc />
++    public partial class AddVoiceRoomIdToGroupChat : Migration
++    {
++        /// <inheritdoc />
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.AddColumn<Guid>(
++                name: "VoiceRoomId",
++                table: "GroupChats",
++                type: "uniqueidentifier",
++                nullable: false,
++                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
++        }
++
++        /// <inheritdoc />
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            migrationBuilder.DropColumn(
++                name: "VoiceRoomId",
++                table: "GroupChats");
++        }
++    }
++}
+diff --git a/Vivcord.Server/Migrations/MainDbContextModelSnapshot.cs b/Vivcord.Server/Migrations/MainDbContextModelSnapshot.cs
+index 8a46993..d16f5af 100644
+--- a/Vivcord.Server/Migrations/MainDbContextModelSnapshot.cs
++++ b/Vivcord.Server/Migrations/MainDbContextModelSnapshot.cs
+@@ -268,6 +268,9 @@ namespace Vivcord.Server.Migrations
+ 
+                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
+ 
++                    b.Property<Guid>("VoiceRoomId")
++                        .HasColumnType("uniqueidentifier");
++
+                     b.Property<Guid>("adminId")
+                         .HasColumnType("uniqueidentifier");
+ 
+diff --git a/Vivcord.Server/Models/GroupChat.cs b/Vivcord.Server/Models/GroupChat.cs
+index 638abf4..7af61d6 100644
+--- a/Vivcord.Server/Models/GroupChat.cs
++++ b/Vivcord.Server/Models/GroupChat.cs
+@@ -1,10 +1,11 @@
+-﻿namespace Vivcord.Server.Models
++namespace Vivcord.Server.Models
+ {
+     public class GroupChat
+     {
+         public int id { get; set; }
+         public string name { get; set; }
+         public Guid adminId { get; set; }
++        public Guid VoiceRoomId { get; set; }
+ 
+         // Navigation properties
+         public AppUser Admin { get; set; } = null!;
+diff --git a/Vivcord.Server/Services/GroupChatService.cs b/Vivcord.Server/Services/GroupChatService.cs
+index a984b4c..2ce713a 100644
+--- a/Vivcord.Server/Services/GroupChatService.cs
++++ b/Vivcord.Server/Services/GroupChatService.cs
+@@ -1,4 +1,4 @@
+-﻿using ErrorOr;
++using ErrorOr;
+ using Microsoft.EntityFrameworkCore;
+ using Vivcord.Server.DbContext;
+ using Vivcord.Server.DTO;
+@@ -28,7 +28,8 @@ namespace Vivcord.Server.Services
+             var newGroup = new GroupChat
+             {
+                 name = createGroupDto.Name,
+-                adminId = userId
++                adminId = userId,
++                VoiceRoomId = Guid.NewGuid()
+             };
+ 
+             dbContext.GroupChats.Add(newGroup);
+@@ -43,7 +44,7 @@ namespace Vivcord.Server.Services
+             dbContext.GroupChatMembers.Add(membership);
+             await dbContext.SaveChangesAsync(cancellationToken);
+ 
+-            return new GroupChatDTO(newGroup.id, newGroup.name, newGroup.adminId, new[] { userId });
++            return new GroupChatDTO(newGroup.id, newGroup.name, newGroup.adminId, new[] { userId }, newGroup.VoiceRoomId);
+         }
+ 
+         public async Task<ErrorOr<Success>> DeleteGroupAsync(Guid userId, int groupId, CancellationToken cancellationToken = default)
+@@ -158,7 +159,7 @@ namespace Vivcord.Server.Services
+                 .Select(gcm => gcm.UserId)
+                 .ToListAsync(cancellationToken);
+ 
+-            return new GroupChatDTO(group.id, group.name, group.adminId, memberIds);
++            return new GroupChatDTO(group.id, group.name, group.adminId, memberIds, group.VoiceRoomId);
+         }
+ 
+         public async Task<ErrorOr<IReadOnlyList<GroupChatDTO>>> GetUserGroupsAsync(Guid userId, CancellationToken cancellationToken = default)
+@@ -177,7 +178,7 @@ namespace Vivcord.Server.Services
+                     .Select(gcm => gcm.UserId)
+                     .ToListAsync(cancellationToken);
+ 
+-                result.Add(new GroupChatDTO(group.id, group.name, group.adminId, memberIds));
++                result.Add(new GroupChatDTO(group.id, group.name, group.adminId, memberIds, group.VoiceRoomId));
+             }
+ 
+             return result.AsReadOnly();
+diff --git a/Vivcord.Server/Services/MessagingServices/MessageRedingService.cs b/Vivcord.Server/Services/MessagingServices/MessageRedingService.cs
+index 6ba0f6a..ac143ff 100644
+--- a/Vivcord.Server/Services/MessagingServices/MessageRedingService.cs
++++ b/Vivcord.Server/Services/MessagingServices/MessageRedingService.cs
+@@ -6,12 +6,12 @@ namespace Vivcord.Server.Services.MessagingServices
+ {
+     public interface IMessagingService
+     {
+-        Task<IReadOnlyList<PrivateMessageDto>> GetChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default);
++        Task<IReadOnlyList<PrivateMessageDto>> GetPrivateChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default);
+         Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default);
+     }
+     public class MessageRedingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessagingService
+     {
+-        public async Task<IReadOnlyList<PrivateMessageDto>> GetChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default)
++        public async Task<IReadOnlyList<PrivateMessageDto>> GetPrivateChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default)
+         {
+             var messages = await dbContext.PrivateMessages
+                 .Where(m => (m.Sender == currentUserId && m.Target == targetUserId) ||
+@@ -50,21 +50,28 @@ namespace Vivcord.Server.Services.MessagingServices
+ 
+         public async Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default)
+         {
+-            var messages = await (from m in dbContext.GroupMessages
+-                                  where m.GroupId == groupId
+-                                  join u in dbContext.Users on m.Sender equals u.Id into usersGroup
+-                                  from u in usersGroup.DefaultIfEmpty()
+-                                  orderby m.SentAt
+-                                  select new
+-                                  {
+-                                      m.id,
+-                                      m.Sender,
+-                                      SenderName = u != null ? u.UserName : null,
+-                                      m.GroupId,
+-                                      m.Text,
+-                                      m.AttachmentUrl,
+-                                      m.AttachmentType,
+-                                  }).ToListAsync(cancellationToken);
++            var messages = await dbContext.GroupMessages
++                .Where(m => m.GroupId == groupId)
++                .GroupJoin(
++                    dbContext.Users,
++                    m => m.Sender,
++                    u => u.Id,
++                    (m, users) => new { m, users })
++                .SelectMany(
++                    x => x.users.DefaultIfEmpty(),
++                    (x, u) => new
++                    {
++                        x.m.id,
++                        x.m.Sender,
++                        SenderName = u != null ? u.UserName : null,
++                        x.m.GroupId,
++                        x.m.Text,
++                        x.m.AttachmentUrl,
++                        x.m.AttachmentType,
++                        x.m.SentAt
++                    })
++                .OrderBy(m => m.SentAt)
++                .ToListAsync(cancellationToken);
+ 
+             return messages.Select(m =>
+             {
+diff --git a/Vivcord.Server/Services/VoiceChatService.cs b/Vivcord.Server/Services/VoiceChatService.cs
+index e975415..a336cf0 100644
+--- a/Vivcord.Server/Services/VoiceChatService.cs
++++ b/Vivcord.Server/Services/VoiceChatService.cs
+@@ -1,27 +1,26 @@
+ using Livekit.Server.Sdk.Dotnet;
+-using Vivcord.Server.DTO;
+ 
+ namespace Vivcord.Server.Services
+ {
+     public interface IVoiceChatService
+     {
+-        string GenerateToken(VoiceTokenDTO voiceToken);
++        string GenerateToken(string roomId, string identity, string displayName);
+     }
+     public class VoiceChatService(IConfiguration config) : IVoiceChatService
+     {
+         string apiKey = config["Livekit:ApiKey"] ?? throw new InvalidOperationException("Livekit API Key is not configured.");
+         string apiSecret = config["Livekit:ApiSecret"] ?? throw new InvalidOperationException("Livekit API Secret is not configured.");
+ 
+-        public string GenerateToken(VoiceTokenDTO voiceToken)
++        public string GenerateToken(string roomId, string identity, string displayName)
+         {
+             var token = new AccessToken(apiKey, apiSecret)
+-                .WithIdentity(voiceToken.Identity)
+-                .WithName(voiceToken.DisplayName)
++                .WithIdentity(identity)
++                .WithName(displayName)
+                 .WithTtl(TimeSpan.FromMinutes(30))
+                 .WithGrants(new VideoGrants
+                 {
+                     RoomJoin = true,
+-                    Room = voiceToken.RoomName,
++                    Room = roomId,
+                     CanPublish = true,
+                     CanSubscribe = true,
+                     CanPublishData = true
+diff --git a/diff.patch b/diff.patch
+new file mode 100644
+index 0000000..968f53d
+Binary files /dev/null and b/diff.patch differ
+diff --git a/vivcord.client/src/app/app.routes.ts b/vivcord.client/src/app/app.routes.ts
+index 618d9db..4c9c068 100644
+--- a/vivcord.client/src/app/app.routes.ts
++++ b/vivcord.client/src/app/app.routes.ts
+@@ -40,7 +40,7 @@ export const routes: Routes = [
+     canActivate: [authGuard]
+   },
+   {
+-    path: 'voice-chat/:roomName',
++    path: 'voice-chat',
+     component: VoiceChatComponent,
+     canActivate: [authGuard]
+   },
+diff --git a/vivcord.client/src/app/group-hub/component/group-hub.html b/vivcord.client/src/app/group-hub/component/group-hub.html
+index 85fc8b2..2da22a2 100644
+--- a/vivcord.client/src/app/group-hub/component/group-hub.html
++++ b/vivcord.client/src/app/group-hub/component/group-hub.html
+@@ -2,7 +2,17 @@
+ <div class="chat-container">
+ 
+   <header class="chat-header">
+-    <h2>Group: {{ groupInfo()?.name ?? groupId() }}</h2>
++    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
++      <h2>Group: {{ groupInfo()?.name ?? groupId() }}</h2>
++      <button
++        id="group-voice-call-btn"
++        class="btn-voice-call"
++        (click)="startVoiceCall()"
++        [disabled]="isStartingCall()"
++        title="Start group voice call">
++        {{ isStartingCall() ? '⏳' : '🔊' }} Voice Call
++      </button>
++    </div>
+     @if (isAdmin()) {
+       <div style="display:flex; gap:8px; align-items:center;">
+         <input #addInput type="text" placeholder="Add user by username" style="padding:4px 8px;">
+diff --git a/vivcord.client/src/app/group-hub/component/group-hub.ts b/vivcord.client/src/app/group-hub/component/group-hub.ts
+index dd5ac91..72affac 100644
+--- a/vivcord.client/src/app/group-hub/component/group-hub.ts
++++ b/vivcord.client/src/app/group-hub/component/group-hub.ts
+@@ -1,12 +1,13 @@
+ import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef } from '@angular/core';
+ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+ import { switchMap } from 'rxjs';
+-import { ActivatedRoute } from '@angular/router';
++import { ActivatedRoute, Router } from '@angular/router';
+ import { GroupHubService } from '../service/group-hub.service';
+ import { GroupManagementService } from '../service/group-management.service';
+ import { AccountService } from '@account/service/account.service';
+ import { MessageDTO } from '../../shared/messaging/dto/message.dto';
+ import { GroupChatDTO } from '../dto/group-hub.dto';
++import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.service';
+ 
+ @Component({
+   selector: 'app-group-hub',
+@@ -15,10 +16,14 @@ import { GroupChatDTO } from '../dto/group-hub.dto';
+ })
+ export class GroupHubComponent implements OnInit, OnDestroy {
+   private readonly route = inject(ActivatedRoute);
++  private readonly router = inject(Router);
+   private readonly groupService = inject(GroupHubService);
+   private readonly groupManagement = inject(GroupManagementService);
+   private readonly accountService = inject(AccountService);
+   private readonly destroyRef = inject(DestroyRef);
++  private readonly voiceCallApi = inject(VoiceCallApiService);
++
++  public readonly isStartingCall = signal(false);
+ 
+   public readonly senderId = computed(() => this.accountService.currentUser()?.id);
+   public readonly currentUserNickname = computed(() => {
+@@ -48,6 +53,24 @@ export class GroupHubComponent implements OnInit, OnDestroy {
+     this.groupService.disconnect();
+   }
+ 
++  public startVoiceCall(): void {
++    const gId = this.groupId();
++    if (!gId || this.isStartingCall()) return;
++
++    this.isStartingCall.set(true);
++    this.voiceCallApi.initiateGroupCall(gId)
++      .pipe(takeUntilDestroyed(this.destroyRef))
++      .subscribe({
++        next: ({ roomId, token }) => {
++          this.router.navigate(['/voice-chat'], { queryParams: { roomId, token } });
++        },
++        error: err => {
++          console.error('[GroupHub] Voice call failed:', err);
++          this.isStartingCall.set(false);
++        },
++      });
++  }
++
+   public onFileSelected(event: Event): void {
+     const input = event.target as HTMLInputElement;
+     this.selectedFile.set(input.files?.[0] ?? null);
+diff --git a/vivcord.client/src/app/private-hub/component/private-hub.html b/vivcord.client/src/app/private-hub/component/private-hub.html
+index cd0dd79..b8d12ae 100644
+--- a/vivcord.client/src/app/private-hub/component/private-hub.html
++++ b/vivcord.client/src/app/private-hub/component/private-hub.html
+@@ -3,6 +3,14 @@
+ 
+   <header class="chat-header">
+     <h2>Chat: {{ currentUsername() }}</h2>
++    <button
++      id="private-voice-call-btn"
++      class="btn-voice-call"
++      (click)="startVoiceCall()"
++      [disabled]="isStartingCall()"
++      title="Start voice call">
++      {{ isStartingCall() ? '⏳' : '📞' }} Voice Call
++    </button>
+   </header>
+ 
+   <main class="chat-messages">
+diff --git a/vivcord.client/src/app/private-hub/component/private-hub.ts b/vivcord.client/src/app/private-hub/component/private-hub.ts
+index 22147ca..ec69643 100644
+--- a/vivcord.client/src/app/private-hub/component/private-hub.ts
++++ b/vivcord.client/src/app/private-hub/component/private-hub.ts
+@@ -1,10 +1,11 @@
+ import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef} from '@angular/core';
+ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+ import { switchMap, tap } from 'rxjs';
+-import { ActivatedRoute } from '@angular/router';
++import { ActivatedRoute, Router } from '@angular/router';
+ import { PrivateHubService } from '../service/private-hub.service';
+ import { AccountService } from '@account/service/account.service';
+ import { MessageDTO } from '../../shared/messaging/dto/message.dto';
++import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.service';
+ 
+ @Component({
+   selector: 'app-private-hub',
+@@ -14,9 +15,13 @@ import { MessageDTO } from '../../shared/messaging/dto/message.dto';
+ })
+ export class PrivateHubComponent implements OnInit, OnDestroy {
+   private readonly route = inject(ActivatedRoute);
++  private readonly router = inject(Router);
+   private readonly chatService = inject(PrivateHubService);
+   private readonly accountService = inject(AccountService);
+   private readonly destroyRef = inject(DestroyRef);
++  private readonly voiceCallApi = inject(VoiceCallApiService);
++
++  public readonly isStartingCall = signal(false);
+ 
+   public readonly senderId = computed(() => this.accountService.currentUser()?.id);
+ 
+@@ -41,6 +46,24 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
+     this.chatService.disconnect();
+   }
+ 
++  public startVoiceCall(): void {
++    const username = this.currentUsername();
++    if (!username || this.isStartingCall()) return;
++
++    this.isStartingCall.set(true);
++    this.voiceCallApi.initiatePrivateCall(username)
++      .pipe(takeUntilDestroyed(this.destroyRef))
++      .subscribe({
++        next: ({ roomId, token }) => {
++          this.router.navigate(['/voice-chat'], { queryParams: { roomId, token } });
++        },
++        error: err => {
++          console.error('[PrivateHub] Voice call failed:', err);
++          this.isStartingCall.set(false);
++        },
++      });
++  }
++
+   public onFileSelected(event: Event): void {
+     const input = event.target as HTMLInputElement;
+     this.selectedFile.set(input.files?.[0] ?? null);
+@@ -124,7 +147,8 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
+     this.chatService.messageReceived$
+       .pipe(takeUntilDestroyed(this.destroyRef))
+       .subscribe(msg => {
+-        if (msg.senderId === this.targetUserId()) {
++        const target = this.targetUserId();
++        if (target && msg.senderId.toLowerCase() === target.toLowerCase()) {
+           const fullMsg: MessageDTO = {
+             ...msg,
+             id: msg.id ?? crypto.randomUUID(),
+diff --git a/vivcord.client/src/app/voice-chat/component/voice-chat/voice-chat.html b/vivcord.client/src/app/voice-chat/component/voice-chat/voice-chat.html
+index 3b6c96c..3623877 100644
+--- a/vivcord.client/src/app/voice-chat/component/voice-chat/voice-chat.html
++++ b/vivcord.client/src/app/voice-chat/component/voice-chat/voice-chat.html
+@@ -7,20 +7,19 @@
+ 
+   @if (!livekitService.isConnected()) {
+   <div class="voice-chat-join-screen">
+-    <h2>Voice Chat: {{ roomName() }}</h2>
+-    <button [disabled]="isJoining()" (click)="join()" class="btn-join">
+-      @if (isJoining()) {
+-      <span class="spinner"></span> Joining...
+-      } @else {
+-      Join Voice Room
+-      }
+-    </button>
++    <h2>Voice Chat</h2>
++    @if (isJoining()) {
++      <div class="connecting-state">
++        <span class="spinner"></span>
++        <p>Connecting...</p>
++      </div>
++    }
+   </div>
+   } @else {
+   <div class="voice-chat-active-screen">
+     <div class="voice-chat-header">
+       <div class="room-info">
+-        <h3>{{ roomName() }}</h3>
++        <h3>Room: {{ roomId() }}</h3>
+         <span class="participant-count">
+           {{ livekitService.participantCount() }} active peer(s)
+         </span>
+diff --git a/vivcord.client/src/app/voice-chat/component/voice-chat/voice-chat.ts b/vivcord.client/src/app/voice-chat/component/voice-chat/voice-chat.ts
+index 0832fbf..c99d7f0 100644
+--- a/vivcord.client/src/app/voice-chat/component/voice-chat/voice-chat.ts
++++ b/vivcord.client/src/app/voice-chat/component/voice-chat/voice-chat.ts
+@@ -1,28 +1,39 @@
+-import { Component, inject, input, signal, OnDestroy } from '@angular/core';
+-import { HttpClient } from '@angular/common/http';
+-import { lastValueFrom } from 'rxjs';
++import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
++import { ActivatedRoute, Router } from '@angular/router';
+ import { LiveKitService } from '../../service/live-kit.service';
+-import { VoiceTokenResponse, GenerateTokenRequest } from '../../dto/voice-chat.dto';
+ import { environment } from '../../../../environments/environment';
+-import { AccountService } from '../../../account/service/account.service';
++
+ @Component({
+   selector: 'app-voice-chat',
+   imports: [],
+   templateUrl: './voice-chat.html',
+   styleUrl: './voice-chat.css',
+ })
+-export class VoiceChatComponent implements OnDestroy {
+-  readonly roomName = input.required<string>();
+-
++export class VoiceChatComponent implements OnInit, OnDestroy {
+   protected readonly livekitService = inject(LiveKitService);
+-  private readonly http = inject(HttpClient);
+-  private readonly accountService = inject(AccountService);
++  private readonly route = inject(ActivatedRoute);
++  private readonly router = inject(Router);
++
++  protected readonly roomId = signal<string>('');
+   protected readonly isJoining = signal(false);
+ 
+-  async join(): Promise<void> {
++  ngOnInit(): void {
++    const params = this.route.snapshot.queryParamMap;
++    const roomId = params.get('roomId');
++    const token = params.get('token');
++
++    if (!roomId || !token) {
++      this.livekitService.error.set('Missing room ID or token. Please initiate a call from a chat.');
++      return;
++    }
++
++    this.roomId.set(roomId);
++    this.join(token);
++  }
++
++  async join(token: string): Promise<void> {
+     this.isJoining.set(true);
+     try {
+-      const token = await this.fetchToken(this.roomName());
+       await this.livekitService.connect(environment.liveKitUrl, token);
+     } finally {
+       this.isJoining.set(false);
+@@ -31,31 +42,7 @@ export class VoiceChatComponent implements OnDestroy {
+ 
+   async leave(): Promise<void> {
+     await this.livekitService.disconnect();
+-  }
+-
+-  private async fetchToken(roomName: string): Promise<string> {
+-    try {
+-      const user = this.accountService.currentUser();
+-      const identity = user ? user.id : 'unknown';
+-      const displayName = user ? user.displayName : 'Anonymous';
+-
+-      const requestBody: GenerateTokenRequest = {
+-        roomName: roomName,
+-        identity: identity,
+-        displayName: displayName
+-      };
+-
+-      const res$ = this.http.post<VoiceTokenResponse>(
+-        `${environment.apiUrl}/VoiceChat/VoiceToken`,
+-        requestBody
+-      );
+-
+-      const data = await lastValueFrom(res$);
+-      return data.token;
+-    } catch (err) {
+-      this.livekitService.error.set(`Failed to fetch token: ${err}`);
+-      throw err;
+-    }
++    this.router.navigate(['/']);
+   }
+ 
+   ngOnDestroy(): void {
+diff --git a/vivcord.client/src/app/voice-chat/dto/voice-chat.dto.ts b/vivcord.client/src/app/voice-chat/dto/voice-chat.dto.ts
+index 90fb590..c389da9 100644
+--- a/vivcord.client/src/app/voice-chat/dto/voice-chat.dto.ts
++++ b/vivcord.client/src/app/voice-chat/dto/voice-chat.dto.ts
+@@ -1,11 +1,16 @@
+-export interface GenerateTokenRequest {
+-  roomName: string;
+-  identity: string;
+-  displayName: string;
++export interface PrivateCallRequest {
++  targetUsername: string;
++}
++
++export interface GroupCallRequest {
++  groupId: number;
+ }
+-export interface VoiceTokenResponse {
++
++export interface VoiceCallResponse {
++  roomId: string;
+   token: string;
+ }
++
+ export interface VoiceParticipant {
+   identity: string;
+   isSpeaking: boolean;
+diff --git a/vivcord.client/src/app/voice-chat/service/voice-call-api.service.ts b/vivcord.client/src/app/voice-chat/service/voice-call-api.service.ts
+new file mode 100644
+index 0000000..44e07f1
+--- /dev/null
++++ b/vivcord.client/src/app/voice-chat/service/voice-call-api.service.ts
+@@ -0,0 +1,23 @@
++import { Injectable, inject } from '@angular/core';
++import { HttpClient } from '@angular/common/http';
++import { Observable } from 'rxjs';
++import { PrivateCallRequest, GroupCallRequest, VoiceCallResponse } from '../dto/voice-chat.dto';
++import { environment } from '../../../environments/environment';
++
++@Injectable({
++  providedIn: 'root',
++})
++export class VoiceCallApiService {
++  private readonly http = inject(HttpClient);
++  private readonly baseUrl = `${environment.apiUrl}/VoiceChat`;
++
++  initiatePrivateCall(targetUsername: string): Observable<VoiceCallResponse> {
++    const body: PrivateCallRequest = { targetUsername };
++    return this.http.post<VoiceCallResponse>(`${this.baseUrl}/private-call`, body);
++  }
++
++  initiateGroupCall(groupId: number): Observable<VoiceCallResponse> {
++    const body: GroupCallRequest = { groupId };
++    return this.http.post<VoiceCallResponse>(`${this.baseUrl}/group-call`, body);
++  }
++}

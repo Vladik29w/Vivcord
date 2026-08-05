@@ -3,6 +3,14 @@
 
   <header class="chat-header">
     <h2>Chat: {{ currentUsername() }}</h2>
+    <button
+      id="private-voice-call-btn"
+      class="btn-voice-call"
+      (click)="startVoiceCall()"
+      [disabled]="isStartingCall()"
+      title="Start voice call">
+      {{ isStartingCall() ? '⏳' : '📞' }} Voice Call
+    </button>
   </header>
 
   <main class="chat-messages">

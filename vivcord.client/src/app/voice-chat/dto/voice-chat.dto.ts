@@ -1,11 +1,16 @@
-export interface GenerateTokenRequest {
-  roomName: string;
-  identity: string;
-  displayName: string;
+export interface PrivateCallRequest {
+  targetUsername: string;
 }
-export interface VoiceTokenResponse {
+
+export interface GroupCallRequest {
+  groupId: number;
+}
+
+export interface VoiceCallResponse {
+  roomId: string;
   token: string;
 }
+
 export interface VoiceParticipant {
   identity: string;
   isSpeaking: boolean;

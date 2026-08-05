@@ -2,7 +2,17 @@
 <div class="chat-container">
 
   <header class="chat-header">
-    <h2>Group: {{ groupInfo()?.name ?? groupId() }}</h2>
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <h2>Group: {{ groupInfo()?.name ?? groupId() }}</h2>
+      <button
+        id="group-voice-call-btn"
+        class="btn-voice-call"
+        (click)="startVoiceCall()"
+        [disabled]="isStartingCall()"
+        title="Start group voice call">
+        {{ isStartingCall() ? '⏳' : '🔊' }} Voice Call
+      </button>
+    </div>
     @if (isAdmin()) {
       <div style="display:flex; gap:8px; align-items:center;">
         <input #addInput type="text" placeholder="Add user by username" style="padding:4px 8px;">

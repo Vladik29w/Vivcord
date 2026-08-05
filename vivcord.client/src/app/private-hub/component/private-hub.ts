@@ -1,10 +1,11 @@
 import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { switchMap, tap } from 'rxjs';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { PrivateHubService } from '../service/private-hub.service';
 import { AccountService } from '@account/service/account.service';
 import { MessageDTO } from '../../shared/messaging/dto/message.dto';
+import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.service';
 
 @Component({
   selector: 'app-private-hub',
@@ -14,9 +15,13 @@ import { MessageDTO } from '../../shared/messaging/dto/message.dto';
 })
 export class PrivateHubComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly chatService = inject(PrivateHubService);
   private readonly accountService = inject(AccountService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly voiceCallApi = inject(VoiceCallApiService);
+
+  public readonly isStartingCall = signal(false);
 
   public readonly senderId = computed(() => this.accountService.currentUser()?.id);
 
@@ -39,6 +44,24 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.chatService.disconnect();
+  }
+
+  public startVoiceCall(): void {
+    const username = this.currentUsername();
+    if (!username || this.isStartingCall()) return;
+
+    this.isStartingCall.set(true);
+    this.voiceCallApi.initiatePrivateCall(username)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ roomId, token }) => {
+          this.router.navigate(['/voice-chat'], { queryParams: { roomId, token } });
+        },
+        error: err => {
+          console.error('[PrivateHub] Voice call failed:', err);
+          this.isStartingCall.set(false);
+        },
+      });
   }
 
   public onFileSelected(event: Event): void {
@@ -124,7 +147,8 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
     this.chatService.messageReceived$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(msg => {
-        if (msg.senderId === this.targetUserId()) {
+        const target = this.targetUserId();
+        if (target && msg.senderId.toLowerCase() === target.toLowerCase()) {
           const fullMsg: MessageDTO = {
             ...msg,
             id: msg.id ?? crypto.randomUUID(),

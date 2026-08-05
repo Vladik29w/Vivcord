@@ -40,7 +40,7 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
-    path: 'voice-chat/:roomName',
+    path: 'voice-chat',
     component: VoiceChatComponent,
     canActivate: [authGuard]
   },
