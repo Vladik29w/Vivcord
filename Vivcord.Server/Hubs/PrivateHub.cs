@@ -16,14 +16,14 @@ namespace Vivcord.Server.Hubs
             {
                 Id = 0,
                 SenderId = Guid.Parse(senderId),
-                TargetUserId = Guid.Parse(dto.TargetUserId),
+                TargetUserId = dto.TargetUserId,
                 Text = dto.Text,
                 AttachmentUrl = dto.AttachmentUrl,
                 AttachmentType = dto.AttachmentType
             };
             var savedMessage = await messageSendingService.SendPrivateMessageAsync(messageDto, Context.ConnectionAborted);
 
-            await Clients.User(dto.TargetUserId).SendAsync(
+            await Clients.User(dto.TargetUserId.ToString()).SendAsync(
                 "ReceiveMessage", senderId, dto.Text, savedMessage.id, dto.AttachmentUrl, dto.AttachmentType);
 
             return savedMessage.id;

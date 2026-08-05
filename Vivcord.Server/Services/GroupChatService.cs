@@ -1,4 +1,4 @@
-﻿using ErrorOr;
+using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
@@ -28,7 +28,8 @@ namespace Vivcord.Server.Services
             var newGroup = new GroupChat
             {
                 name = createGroupDto.Name,
-                adminId = userId
+                adminId = userId,
+                VoiceRoomId = Guid.NewGuid()
             };
 
             dbContext.GroupChats.Add(newGroup);
@@ -43,7 +44,7 @@ namespace Vivcord.Server.Services
             dbContext.GroupChatMembers.Add(membership);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return new GroupChatDTO(newGroup.id, newGroup.name, newGroup.adminId, new[] { userId });
+            return new GroupChatDTO(newGroup.id, newGroup.name, newGroup.adminId, new[] { userId }, newGroup.VoiceRoomId);
         }
 
         public async Task<ErrorOr<Success>> DeleteGroupAsync(Guid userId, int groupId, CancellationToken cancellationToken = default)
@@ -146,11 +147,16 @@ namespace Vivcord.Server.Services
         public async Task<ErrorOr<GroupChatDTO>> GetGroupAsync(int groupId, CancellationToken cancellationToken = default)
         {
             var group = await dbContext.GroupChats
-                .AsNoTracking()
                 .FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
 
             if (group == null)
                 return Error.NotFound(description: "Group not found");
+
+            if (group.VoiceRoomId == Guid.Empty)
+            {
+                group.VoiceRoomId = Guid.NewGuid();
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
 
             var memberIds = await dbContext.GroupChatMembers
                 .AsNoTracking()
@@ -158,26 +164,38 @@ namespace Vivcord.Server.Services
                 .Select(gcm => gcm.UserId)
                 .ToListAsync(cancellationToken);
 
-            return new GroupChatDTO(group.id, group.name, group.adminId, memberIds);
+            return new GroupChatDTO(group.id, group.name, group.adminId, memberIds, group.VoiceRoomId);
         }
 
         public async Task<ErrorOr<IReadOnlyList<GroupChatDTO>>> GetUserGroupsAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             var groups = await dbContext.GroupChats
-                .AsNoTracking()
                 .Where(g => g.Members.Any(m => m.UserId == userId))
                 .ToListAsync(cancellationToken);
 
             var result = new List<GroupChatDTO>();
+            var hasUpdates = false;
+
             foreach (var group in groups)
             {
+                if (group.VoiceRoomId == Guid.Empty)
+                {
+                    group.VoiceRoomId = Guid.NewGuid();
+                    hasUpdates = true;
+                }
+
                 var memberIds = await dbContext.GroupChatMembers
                     .AsNoTracking()
                     .Where(gcm => gcm.GroupChatId == group.id)
                     .Select(gcm => gcm.UserId)
                     .ToListAsync(cancellationToken);
 
-                result.Add(new GroupChatDTO(group.id, group.name, group.adminId, memberIds));
+                result.Add(new GroupChatDTO(group.id, group.name, group.adminId, memberIds, group.VoiceRoomId));
+            }
+
+            if (hasUpdates)
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
             }
 
             return result.AsReadOnly();

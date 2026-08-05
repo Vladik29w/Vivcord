@@ -1,4 +1,6 @@
-﻿namespace Vivcord.Server.DTO
+namespace Vivcord.Server.DTO
 {
-    public record VoiceTokenDTO(string RoomName, string Identity, string DisplayName);
+    public record PrivateCallRequestDTO(string TargetUsername);
+    public record GroupCallRequestDTO(int GroupId);
+    public record VoiceCallResponseDTO(string RoomId, string Token);
 }

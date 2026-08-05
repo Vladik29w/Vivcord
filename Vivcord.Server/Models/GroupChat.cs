@@ -1,10 +1,11 @@
-﻿namespace Vivcord.Server.Models
+namespace Vivcord.Server.Models
 {
     public class GroupChat
     {
         public int id { get; set; }
         public string name { get; set; }
         public Guid adminId { get; set; }
+        public Guid VoiceRoomId { get; set; } = Guid.NewGuid();
 
         // Navigation properties
         public AppUser Admin { get; set; } = null!;

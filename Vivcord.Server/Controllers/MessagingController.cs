@@ -17,7 +17,7 @@ namespace Vivcord.Server.Controllers
             if (currentUserIdStr == null || !Guid.TryParse(currentUserIdStr, out var currentUserId))
                 return Unauthorized();
 
-            var history = await messagingService.GetChatHistory(currentUserId, targetUserId, cancellationToken);
+            var history = await messagingService.GetPrivateChatHistory(currentUserId, targetUserId, cancellationToken);
             return Ok(history);
         }
 

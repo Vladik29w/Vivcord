@@ -6,12 +6,12 @@ namespace Vivcord.Server.Services.MessagingServices
 {
     public interface IMessagingService
     {
-        Task<IReadOnlyList<PrivateMessageDto>> GetChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<PrivateMessageDto>> GetPrivateChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default);
     }
     public class MessageRedingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessagingService
     {
-        public async Task<IReadOnlyList<PrivateMessageDto>> GetChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<PrivateMessageDto>> GetPrivateChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default)
         {
             var messages = await dbContext.PrivateMessages
                 .Where(m => (m.Sender == currentUserId && m.Target == targetUserId) ||
@@ -50,21 +50,28 @@ namespace Vivcord.Server.Services.MessagingServices
 
         public async Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default)
         {
-            var messages = await (from m in dbContext.GroupMessages
-                                  where m.GroupId == groupId
-                                  join u in dbContext.Users on m.Sender equals u.Id into usersGroup
-                                  from u in usersGroup.DefaultIfEmpty()
-                                  orderby m.SentAt
-                                  select new
-                                  {
-                                      m.id,
-                                      m.Sender,
-                                      SenderName = u != null ? u.UserName : null,
-                                      m.GroupId,
-                                      m.Text,
-                                      m.AttachmentUrl,
-                                      m.AttachmentType,
-                                  }).ToListAsync(cancellationToken);
+            var messages = await dbContext.GroupMessages
+                .Where(m => m.GroupId == groupId)
+                .GroupJoin(
+                    dbContext.Users,
+                    m => m.Sender,
+                    u => u.Id,
+                    (m, users) => new { m, users })
+                .SelectMany(
+                    x => x.users.DefaultIfEmpty(),
+                    (x, u) => new
+                    {
+                        x.m.id,
+                        x.m.Sender,
+                        SenderName = u != null ? u.UserName : null,
+                        x.m.GroupId,
+                        x.m.Text,
+                        x.m.AttachmentUrl,
+                        x.m.AttachmentType,
+                        x.m.SentAt
+                    })
+                .OrderBy(m => m.SentAt)
+                .ToListAsync(cancellationToken);
 
             return messages.Select(m =>
             {
