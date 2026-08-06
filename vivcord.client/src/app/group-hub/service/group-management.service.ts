@@ -42,7 +42,7 @@ export class GroupManagementService {
   }
 
   public addMember(groupId: number, userName: string): Observable<void> {
-    const params = new HttpParams().set('userNameToAdd', userName);
+    const params = new HttpParams().set('username', userName);
     return this._http.post<void>(
       `${this._apiUrl}/add-member/${groupId}`,
       {},
@@ -51,7 +51,7 @@ export class GroupManagementService {
   }
 
   public removeMember(groupId: number, userName: string): Observable<void> {
-    const params = new HttpParams().set('userNameToRemove', userName);
+    const params = new HttpParams().set('username', userName);
     return this._http.delete<void>(
       `${this._apiUrl}/remove-member/${groupId}`,
       { params, withCredentials: true }
