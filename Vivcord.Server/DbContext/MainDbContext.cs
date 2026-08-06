@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.Models;
@@ -65,9 +65,35 @@ namespace Vivcord.Server.DbContext
 
             // GroupMessage relationship
             builder.Entity<GroupMessage>()
-                .HasOne<GroupChat>()
+                .HasOne(gm => gm.GroupChat)
                 .WithMany(gc => gc.Messages)
                 .HasForeignKey(gm => gm.GroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<GroupMessage>()
+                .HasOne(gm => gm.SenderUser)
+                .WithMany()
+                .HasForeignKey(gm => gm.Sender)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // PrivateMessage relationship
+            builder.Entity<PrivateMessage>()
+                .HasOne(pm => pm.SenderUser)
+                .WithMany()
+                .HasForeignKey(pm => pm.Sender)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<PrivateMessage>()
+                .HasOne(pm => pm.TargetUser)
+                .WithMany()
+                .HasForeignKey(pm => pm.Target)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // RefreshToken relationship
+            builder.Entity<RefreshToken>()
+                .HasOne(rt => rt.User)
+                .WithMany()
+                .HasForeignKey(rt => rt.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

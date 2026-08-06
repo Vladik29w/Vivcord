@@ -1,10 +1,11 @@
-﻿namespace Vivcord.Server.Models
+namespace Vivcord.Server.Models
 {
     public class RefreshToken
     {
         public int Id { get; set; }
         public required string Token { get; set; }
         public required Guid UserId { get; set; }
+        public AppUser User { get; set; } = null!;
         public DateTimeOffset Created { get; set; } = TimeProvider.System.GetUtcNow();
         public DateTimeOffset Expires { get; set; }
         public bool IsRevoked { get; set; }

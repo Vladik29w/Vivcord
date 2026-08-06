@@ -52,25 +52,18 @@ namespace Vivcord.Server.Services.MessagingServices
         {
             var messages = await dbContext.GroupMessages
                 .Where(m => m.GroupId == groupId)
-                .GroupJoin(
-                    dbContext.Users,
-                    m => m.Sender,
-                    u => u.Id,
-                    (m, users) => new { m, users })
-                .SelectMany(
-                    x => x.users.DefaultIfEmpty(),
-                    (x, u) => new
-                    {
-                        x.m.id,
-                        x.m.Sender,
-                        SenderName = u != null ? u.UserName : null,
-                        x.m.GroupId,
-                        x.m.Text,
-                        x.m.AttachmentUrl,
-                        x.m.AttachmentType,
-                        x.m.SentAt
-                    })
                 .OrderBy(m => m.SentAt)
+                .Select(m => new
+                {
+                    m.id,
+                    m.Sender,
+                    SenderName = m.SenderUser != null ? m.SenderUser.UserName : null,
+                    m.GroupId,
+                    m.Text,
+                    m.AttachmentUrl,
+                    m.AttachmentType,
+                    m.SentAt
+                })
                 .ToListAsync(cancellationToken);
 
             return messages.Select(m =>
