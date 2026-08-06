@@ -26,9 +26,7 @@ builder.Services.AddSingleton<IVoiceChatService, VoiceChatService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IGroupChatService, GroupChatService>();
 
-// BlobStorageService builds BlobClient internally with StorageSharedKeyCredential (read from config)
-// which is required for CanGenerateSasUri == true. Registered as Singleton — stateless, thread-safe.
-builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
+builder.Services.AddVivcordAzureBlob();
 
 var signalRBuilder = builder.Services.AddSignalR();
 var azureSignalRConnectionString = builder.Configuration.GetConnectionString("AzureSignalR");
@@ -43,23 +41,7 @@ if (!string.IsNullOrWhiteSpace(azureSignalRConnectionString))
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 // CORS
-var corsOrigins = builder.Configuration["CorsOrigins"];
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAngularOrigin",
-        policy =>
-        {
-            var origins = new List<string> { "https://localhost:62667", "https://127.0.0.1:62667", "http://localhost:4200" };
-            if (!string.IsNullOrEmpty(corsOrigins))
-            {
-                origins.AddRange(corsOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(o => o.Trim()));
-            }
-            policy.WithOrigins(origins.ToArray())
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
-        });
-});
+builder.Services.AddVivcordCors(builder.Configuration);
 //Database
 builder.Services.AddDbContext<MainDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
