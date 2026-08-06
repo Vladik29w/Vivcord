@@ -13,7 +13,7 @@ namespace Vivcord.Server.Controllers
     public class GroupController(IGroupChatService groupChatService) : ApiMainController
     {
         [HttpPost("create")]
-        public async Task<IActionResult> CreateGroup(CreateGroupChatDTO createGroupDto, CancellationToken cancellationToken)
+        public async Task<IActionResult> CreateGroup(CreateGroupChatDTO dto, CancellationToken cancellationToken)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
@@ -23,7 +23,7 @@ namespace Vivcord.Server.Controllers
             if (!Guid.TryParse(userId, out var userIdGuid))
                 return BadRequest("Invalid user id format.");
 
-            var createResult = await groupChatService.CreateGroupAsync(userIdGuid, createGroupDto, cancellationToken);
+            var createResult = await groupChatService.CreateGroupAsync(userIdGuid, dto, cancellationToken);
 
             return createResult.Match(
                 groupChat => Ok(groupChat),
@@ -51,7 +51,7 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpPost("add-member/{groupId}")]
-        public async Task<IActionResult> AddMember(int groupId, string userNameToAdd, CancellationToken cancellationToken)
+        public async Task<IActionResult> AddMember(int groupId, string username, CancellationToken cancellationToken)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
@@ -61,7 +61,7 @@ namespace Vivcord.Server.Controllers
             if (!Guid.TryParse(userId, out var userIdGuid))
                 return BadRequest("Invalid user id format.");
 
-            var addMemberResult = await groupChatService.AddMemberAsync(userIdGuid, groupId, userNameToAdd, cancellationToken);
+            var addMemberResult = await groupChatService.AddMemberAsync(userIdGuid, groupId, username, cancellationToken);
 
             return addMemberResult.Match(
                 success => Ok(),
@@ -70,7 +70,7 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpDelete("remove-member/{groupId}")]
-        public async Task<IActionResult> RemoveMember(int groupId, string userNameToRemove, CancellationToken cancellationToken)
+        public async Task<IActionResult> RemoveMember(int groupId, string username, CancellationToken cancellationToken)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
@@ -80,7 +80,7 @@ namespace Vivcord.Server.Controllers
             if (!Guid.TryParse(userId, out var userIdGuid))
                 return BadRequest("Invalid user id format.");
 
-            var removeMemberResult = await groupChatService.RemoveMemberAsync(userIdGuid, groupId, userNameToRemove, cancellationToken);
+            var removeMemberResult = await groupChatService.RemoveMemberAsync(userIdGuid, groupId, username, cancellationToken);
 
             return removeMemberResult.Match(
                 success => Ok(),
@@ -89,7 +89,7 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpPost("assign-admin/{groupId}")]
-        public async Task<IActionResult> AssignAdmin(int groupId, string userNameToMakeAdmin, CancellationToken cancellationToken)
+        public async Task<IActionResult> AssignAdmin(int groupId, string newAdminUsername, CancellationToken cancellationToken)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
@@ -99,7 +99,7 @@ namespace Vivcord.Server.Controllers
             if (!Guid.TryParse(userId, out var userIdGuid))
                 return BadRequest("Invalid user id format.");
 
-            var assignAdminResult = await groupChatService.AssignAdminAsync(userIdGuid, groupId, userNameToMakeAdmin, cancellationToken);
+            var assignAdminResult = await groupChatService.AssignAdminAsync(userIdGuid, groupId, newAdminUsername, cancellationToken);
 
             return assignAdminResult.Match(
                 success => Ok(),

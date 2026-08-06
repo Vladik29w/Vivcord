@@ -8,83 +8,85 @@ namespace Vivcord.Server.Services
 {
     public interface IGroupChatService
     {
-        Task<ErrorOr<GroupChatDTO>> CreateGroupAsync(Guid userId, CreateGroupChatDTO createGroupDto, CancellationToken cancellationToken = default);
+        Task<ErrorOr<GroupChatDTO>> CreateGroupAsync(Guid userId, CreateGroupChatDTO dto, CancellationToken cancellationToken = default);
         Task<ErrorOr<Success>> DeleteGroupAsync(Guid userId, int groupId, CancellationToken cancellationToken = default);
-        Task<ErrorOr<Success>> AddMemberAsync(Guid userId, int groupId, string userNameToAdd, CancellationToken cancellationToken = default);
-        Task<ErrorOr<Success>> RemoveMemberAsync(Guid userId, int groupId, string userNameToRemove, CancellationToken cancellationToken = default);
-        Task<ErrorOr<Success>> AssignAdminAsync(Guid userId, int groupId, string userNameToMakeAdmin, CancellationToken cancellationToken = default);
+        Task<ErrorOr<Success>> AddMemberAsync(Guid userId, int groupId, string username, CancellationToken cancellationToken = default);
+        Task<ErrorOr<Success>> RemoveMemberAsync(Guid userId, int groupId, string username, CancellationToken cancellationToken = default);
+        Task<ErrorOr<Success>> AssignAdminAsync(Guid userId, int groupId, string newAdminUsername, CancellationToken cancellationToken = default);
         Task<ErrorOr<GroupChatDTO>> GetGroupAsync(int groupId, CancellationToken cancellationToken = default);
         Task<ErrorOr<IReadOnlyList<GroupChatDTO>>> GetUserGroupsAsync(Guid userId, CancellationToken cancellationToken = default);
     }
 
     public class GroupChatService(MainDbContext dbContext) : IGroupChatService
     {
-        public async Task<ErrorOr<GroupChatDTO>> CreateGroupAsync(Guid userId, CreateGroupChatDTO createGroupDto, CancellationToken cancellationToken = default)
+        public async Task<ErrorOr<GroupChatDTO>> CreateGroupAsync(Guid userId, CreateGroupChatDTO dto, CancellationToken cancellationToken = default)
         {
-            var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-            if (user == null)
+            var userExists = await dbContext.Users.AnyAsync(u => u.Id == userId, cancellationToken);
+            if (!userExists)
                 return Error.NotFound(description: "User not found");
 
             var newGroup = new GroupChat
             {
-                name = createGroupDto.Name,
+                name = dto.Name,
                 adminId = userId,
-                VoiceRoomId = Guid.NewGuid()
+                VoiceRoomId = Guid.NewGuid(),
+                Members = [new GroupChatMember { UserId = userId }]
             };
 
             dbContext.GroupChats.Add(newGroup);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            //creator is a member
-            var membership = new GroupChatMember
-            {
-                GroupChatId = newGroup.id,
-                UserId = userId
-            };
-            dbContext.GroupChatMembers.Add(membership);
-            await dbContext.SaveChangesAsync(cancellationToken);
-
-            return new GroupChatDTO(newGroup.id, newGroup.name, newGroup.adminId, new[] { userId }, newGroup.VoiceRoomId);
+            return new GroupChatDTO(newGroup.id, newGroup.name, newGroup.adminId, [userId], newGroup.VoiceRoomId);
         }
 
         public async Task<ErrorOr<Success>> DeleteGroupAsync(Guid userId, int groupId, CancellationToken cancellationToken = default)
         {
-            var group = await dbContext.GroupChats.FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
+            var group = await dbContext.GroupChats
+                .AsNoTracking()
+                .FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
+
             if (group == null)
                 return Error.NotFound(description: "Group not found");
 
             if (group.adminId != userId)
                 return Error.Unauthorized(description: "Only group admin can delete the group");
 
-            dbContext.GroupChats.Remove(group);
-            await dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.GroupChats
+                .Where(g => g.id == groupId)
+                .ExecuteDeleteAsync(cancellationToken);
 
             return Result.Success;
         }
 
-        public async Task<ErrorOr<Success>> AddMemberAsync(Guid userId, int groupId, string userNameToAdd, CancellationToken cancellationToken = default)
+        public async Task<ErrorOr<Success>> AddMemberAsync(Guid userId, int groupId, string username, CancellationToken cancellationToken = default)
         {
-            var group = await dbContext.GroupChats.FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
+            var group = await dbContext.GroupChats
+                .AsNoTracking()
+                .FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
+
             if (group == null)
                 return Error.NotFound(description: "Group not found");
 
             if (group.adminId != userId)
                 return Error.Unauthorized(description: "Only group admin can add members");
 
-            var userToAdd = await dbContext.Users.FirstOrDefaultAsync(u => u.UserName == userNameToAdd, cancellationToken);
-            if (userToAdd == null)
-                return Error.NotFound(description: $"User {userNameToAdd} not found");
+            var user = await dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserName == username, cancellationToken);
 
-            var alreadyMember = await dbContext.GroupChatMembers
-                .AnyAsync(gcm => gcm.GroupChatId == groupId && gcm.UserId == userToAdd.Id, cancellationToken);
+            if (user == null)
+                return Error.NotFound(description: $"User '{username}' not found");
 
-            if (alreadyMember)
+            var isAlreadyMember = await dbContext.GroupChatMembers
+                .AnyAsync(m => m.GroupChatId == groupId && m.UserId == user.Id, cancellationToken);
+
+            if (isAlreadyMember)
                 return Error.Conflict(description: "User is already a member of this group");
 
             var membership = new GroupChatMember
             {
                 GroupChatId = groupId,
-                UserId = userToAdd.Id
+                UserId = user.Id
             };
 
             dbContext.GroupChatMembers.Add(membership);
@@ -93,112 +95,113 @@ namespace Vivcord.Server.Services
             return Result.Success;
         }
 
-        public async Task<ErrorOr<Success>> RemoveMemberAsync(Guid userId, int groupId, string userNameToRemove, CancellationToken cancellationToken = default)
+        public async Task<ErrorOr<Success>> RemoveMemberAsync(Guid userId, int groupId, string username, CancellationToken cancellationToken = default)
         {
-            var group = await dbContext.GroupChats.FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
+            var group = await dbContext.GroupChats
+                .AsNoTracking()
+                .FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
+
             if (group == null)
                 return Error.NotFound(description: "Group not found");
 
             if (group.adminId != userId)
                 return Error.Unauthorized(description: "Only group admin can remove members");
 
-            var userToRemove = await dbContext.Users.FirstOrDefaultAsync(u => u.UserName == userNameToRemove, cancellationToken);
-            if (userToRemove == null)
-                return Error.NotFound(description: $"User {userNameToRemove} not found");
+            var user = await dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserName == username, cancellationToken);
 
-            var membership = await dbContext.GroupChatMembers
-                .FirstOrDefaultAsync(gcm => gcm.GroupChatId == groupId && gcm.UserId == userToRemove.Id, cancellationToken);
+            if (user == null)
+                return Error.NotFound(description: $"User '{username}' not found");
 
-            if (membership == null)
+            var deletedRows = await dbContext.GroupChatMembers
+                .Where(m => m.GroupChatId == groupId && m.UserId == user.Id)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            if (deletedRows == 0)
                 return Error.NotFound(description: "User is not a member of this group");
-
-            dbContext.GroupChatMembers.Remove(membership);
-            await dbContext.SaveChangesAsync(cancellationToken);
 
             return Result.Success;
         }
 
-        public async Task<ErrorOr<Success>> AssignAdminAsync(Guid userId, int groupId, string userNameToMakeAdmin, CancellationToken cancellationToken = default)
+        public async Task<ErrorOr<Success>> AssignAdminAsync(Guid userId, int groupId, string newAdminUsername, CancellationToken cancellationToken = default)
         {
-            var group = await dbContext.GroupChats.FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
+            var group = await dbContext.GroupChats
+                .AsNoTracking()
+                .FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
+
             if (group == null)
                 return Error.NotFound(description: "Group not found");
 
             if (group.adminId != userId)
                 return Error.Unauthorized(description: "Only current group admin can assign new admin");
 
-            var userToMakeAdmin = await dbContext.Users.FirstOrDefaultAsync(u => u.UserName == userNameToMakeAdmin, cancellationToken);
-            if (userToMakeAdmin == null)
-                return Error.NotFound(description: $"User {userNameToMakeAdmin} not found");
+            var newAdminUser = await dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserName == newAdminUsername, cancellationToken);
+
+            if (newAdminUser == null)
+                return Error.NotFound(description: $"User '{newAdminUsername}' not found");
 
             var isMember = await dbContext.GroupChatMembers
-                .AnyAsync(gcm => gcm.GroupChatId == groupId && gcm.UserId == userToMakeAdmin.Id, cancellationToken);
+                .AnyAsync(m => m.GroupChatId == groupId && m.UserId == newAdminUser.Id, cancellationToken);
 
             if (!isMember)
                 return Error.Conflict(description: "User must be a member of the group before becoming admin");
 
-            group.adminId = userToMakeAdmin.Id;
-            dbContext.GroupChats.Update(group);
-            await dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.GroupChats
+                .Where(g => g.id == groupId)
+                .ExecuteUpdateAsync(s => s.SetProperty(g => g.adminId, newAdminUser.Id), cancellationToken);
 
             return Result.Success;
         }
 
         public async Task<ErrorOr<GroupChatDTO>> GetGroupAsync(int groupId, CancellationToken cancellationToken = default)
         {
-            var group = await dbContext.GroupChats
-                .FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
+            var groupDto = await dbContext.GroupChats
+                .AsNoTracking()
+                .Where(g => g.id == groupId)
+                .Select(g => new GroupChatDTO(
+                    g.id,
+                    g.name,
+                    g.adminId,
+                    g.Members.Select(m => m.UserId).ToList(),
+                    g.VoiceRoomId
+                ))
+                .FirstOrDefaultAsync(cancellationToken);
 
-            if (group == null)
+            if (groupDto == null)
                 return Error.NotFound(description: "Group not found");
 
-            if (group.VoiceRoomId == Guid.Empty)
+            if (groupDto.VoiceRoomId == Guid.Empty)
             {
-                group.VoiceRoomId = Guid.NewGuid();
-                await dbContext.SaveChangesAsync(cancellationToken);
+                var newVoiceRoomId = Guid.NewGuid();
+                await dbContext.GroupChats
+                    .Where(g => g.id == groupId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(g => g.VoiceRoomId, newVoiceRoomId), cancellationToken);
+
+                groupDto = groupDto with { VoiceRoomId = newVoiceRoomId };
             }
 
-            var memberIds = await dbContext.GroupChatMembers
-                .AsNoTracking()
-                .Where(gcm => gcm.GroupChatId == groupId)
-                .Select(gcm => gcm.UserId)
-                .ToListAsync(cancellationToken);
-
-            return new GroupChatDTO(group.id, group.name, group.adminId, memberIds, group.VoiceRoomId);
+            return groupDto;
         }
 
         public async Task<ErrorOr<IReadOnlyList<GroupChatDTO>>> GetUserGroupsAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             var groups = await dbContext.GroupChats
+                .AsNoTracking()
                 .Where(g => g.Members.Any(m => m.UserId == userId))
+                .Select(g => new GroupChatDTO(
+                    g.id,
+                    g.name,
+                    g.adminId,
+                    g.Members.Select(m => m.UserId).ToList(),
+                    g.VoiceRoomId
+                ))
                 .ToListAsync(cancellationToken);
 
-            var result = new List<GroupChatDTO>();
-            var hasUpdates = false;
-
-            foreach (var group in groups)
-            {
-                if (group.VoiceRoomId == Guid.Empty)
-                {
-                    group.VoiceRoomId = Guid.NewGuid();
-                    hasUpdates = true;
-                }
-
-                var memberIds = await dbContext.GroupChatMembers
-                    .AsNoTracking()
-                    .Where(gcm => gcm.GroupChatId == group.id)
-                    .Select(gcm => gcm.UserId)
-                    .ToListAsync(cancellationToken);
-
-                result.Add(new GroupChatDTO(group.id, group.name, group.adminId, memberIds, group.VoiceRoomId));
-            }
-
-            if (hasUpdates)
-            {
-                await dbContext.SaveChangesAsync(cancellationToken);
-            }
-
-            return result.AsReadOnly();
+            return groups.AsReadOnly();
         }
     }
 }
+
