@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -17,18 +17,6 @@ namespace Vivcord.Server.Migrations
             migrationBuilder.DropIndex(
                 name: "EmailIndex",
                 table: "AspNetUsers");
-
-            migrationBuilder.AddColumn<string>(
-                name: "AttachmentType",
-                table: "UserMessages",
-                type: "nvarchar(max)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "AttachmentUrl",
-                table: "UserMessages",
-                type: "nvarchar(max)",
-                nullable: true);
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",
@@ -67,14 +55,6 @@ namespace Vivcord.Server.Migrations
             migrationBuilder.DropIndex(
                 name: "IX_AspNetUsers_Email",
                 table: "AspNetUsers");
-
-            migrationBuilder.DropColumn(
-                name: "AttachmentType",
-                table: "UserMessages");
-
-            migrationBuilder.DropColumn(
-                name: "AttachmentUrl",
-                table: "UserMessages");
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",
