@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Moq;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Services;
 using Vivcord.Server.Services.MessagingServices;
 
 namespace Vivcord.xUnit.MessagingTests;
@@ -23,12 +24,21 @@ public class MessageSendingServiceTests
         return mock.Object;
     }
 
+    private static IBlobStorageService NullBlobStorage()
+    {
+        // Attachment URL
+        return new Mock<IBlobStorageService>().Object;
+    }
+
+    private static MessageSendingService CreateService(MainDbContext db, TimeProvider? time = null)
+        => new(db, time ?? TimeProvider.System, NullBlobStorage());
+
     [Fact]
     public async Task SendPrivateMessageAsync_Persists_Message_To_Database()
     {
         // Arrange
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, TimeProvider.System);
+        var service = CreateService(db);
 
         var dto = new PrivateMessageDto
         {
@@ -54,7 +64,7 @@ public class MessageSendingServiceTests
     {
         // Arrange
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, TimeProvider.System);
+        var service = CreateService(db);
 
         var senderGuid = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var targetGuid = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -72,16 +82,12 @@ public class MessageSendingServiceTests
         // Act
         var result = await service.SendPrivateMessageAsync(dto);
 
-        // Assert — returned object
-        Assert.Equal(senderGuid, result.Sender);
-        Assert.Equal(targetGuid, result.Target);
-
-        // Assert — what was actually persisted in the DB
+        // Assert — returned result
         var saved = await db.PrivateMessages.FirstOrDefaultAsync();
         Assert.NotNull(saved);
         Assert.Equal(senderGuid, saved.Sender);
         Assert.Equal(targetGuid, saved.Target);
-        Assert.Equal(result.id, saved.id);
+        Assert.Equal(result.Id, saved.id);
     }
 
     [Fact]
@@ -91,7 +97,7 @@ public class MessageSendingServiceTests
         var frozenNow = new DateTimeOffset(2025, 1, 15, 10, 30, 0, TimeSpan.Zero);
 
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, FrozenTime(frozenNow));
+        var service = CreateService(db, FrozenTime(frozenNow));
 
         var dto = new PrivateMessageDto
         {
@@ -104,10 +110,12 @@ public class MessageSendingServiceTests
         };
 
         // Act
-        var result = await service.SendPrivateMessageAsync(dto);
+        await service.SendPrivateMessageAsync(dto);
 
         // Assert
-        Assert.Equal(frozenNow, result.SentAt);
+        var saved = await db.PrivateMessages.FirstOrDefaultAsync();
+        Assert.NotNull(saved);
+        Assert.Equal(frozenNow, saved.SentAt);
     }
 
     [Fact]
@@ -115,7 +123,7 @@ public class MessageSendingServiceTests
     {
         // Arrange
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, TimeProvider.System);
+        var service = CreateService(db);
 
         var dto = new PrivateMessageDto
         {
@@ -131,8 +139,7 @@ public class MessageSendingServiceTests
         var result = await service.SendPrivateMessageAsync(dto);
 
         // Assert
-        Assert.Null(result.AttachmentUrl);
-        Assert.Null(result.AttachmentType);
+        Assert.Null(result.SasAttachmentUrl);
     }
 
     [Fact]
@@ -140,7 +147,7 @@ public class MessageSendingServiceTests
     {
         // Arrange
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, TimeProvider.System);
+        var service = CreateService(db);
 
         var senderA = Guid.NewGuid();
         var senderB = Guid.NewGuid();

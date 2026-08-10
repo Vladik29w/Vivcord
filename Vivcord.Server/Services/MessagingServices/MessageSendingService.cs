@@ -6,17 +6,20 @@ namespace Vivcord.Server.Services.MessagingServices
 {
     public interface IMessageSendingService
     {
-        Task<PrivateMessage> SendPrivateMessageAsync(
-            PrivateMessageDto messageDto,
-            CancellationToken cancellationToken = default);
-        Task<GroupMessage> SendGroupMessageAsync(
-            GroupMessageDto messageDto,
-            CancellationToken cancellationToken = default);
+        Task<MessageSendResult> SendPrivateMessageAsync(PrivateMessageDto messageDto, CancellationToken cancellationToken = default);
+        Task<MessageSendResult> SendGroupMessageAsync(GroupMessageDto messageDto, CancellationToken cancellationToken = default);
     }
 
-    public class MessageSendingService(MainDbContext dbContext, TimeProvider timeProvider) : IMessageSendingService
+    public class MessageSendingService(MainDbContext dbContext, TimeProvider timeProvider, IBlobStorageService blobStorageService) : IMessageSendingService
     {
-        public async Task<PrivateMessage> SendPrivateMessageAsync(PrivateMessageDto messageDto, CancellationToken cancellationToken = default)
+        private string? ToSasUrl(string? blobName)
+        {
+            if (blobName is null) return null;
+            var result = blobStorageService.GenerateSasReadUrl(blobName);
+            return result.IsError ? null : result.Value;
+        }
+
+        public async Task<MessageSendResult> SendPrivateMessageAsync(PrivateMessageDto messageDto, CancellationToken cancellationToken = default)
         {
             var userMessage = new PrivateMessage
             {
@@ -31,9 +34,10 @@ namespace Vivcord.Server.Services.MessagingServices
             dbContext.PrivateMessages.Add(userMessage);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return userMessage;
+            return new MessageSendResult(userMessage.id, ToSasUrl(messageDto.AttachmentUrl));
         }
-        public async Task<GroupMessage> SendGroupMessageAsync(GroupMessageDto messageDto, CancellationToken cancellationToken = default)
+
+        public async Task<MessageSendResult> SendGroupMessageAsync(GroupMessageDto messageDto, CancellationToken cancellationToken = default)
         {
             var userMessage = new GroupMessage
             {
@@ -48,7 +52,7 @@ namespace Vivcord.Server.Services.MessagingServices
             dbContext.GroupMessages.Add(userMessage);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return userMessage;
+            return new MessageSendResult(userMessage.id, ToSasUrl(messageDto.AttachmentUrl));
         }
     }
 }

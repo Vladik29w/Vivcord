@@ -24,9 +24,9 @@ namespace Vivcord.Server.Hubs
             var savedMessage = await messageSendingService.SendPrivateMessageAsync(messageDto, Context.ConnectionAborted);
 
             await Clients.User(dto.TargetUserId.ToString()).SendAsync(
-                "ReceiveMessage", senderId, dto.Text, savedMessage.id, dto.AttachmentUrl, dto.AttachmentType);
+                "ReceiveMessage", senderId, dto.Text, savedMessage.Id, savedMessage.SasAttachmentUrl, dto.AttachmentType);
 
-            return savedMessage.id;
+            return savedMessage.Id;
         }
     }
 }

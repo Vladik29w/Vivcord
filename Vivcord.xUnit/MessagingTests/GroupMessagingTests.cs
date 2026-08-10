@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Moq;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Services;
 using Vivcord.Server.Services.MessagingServices;
 
 namespace Vivcord.xUnit.MessagingTests;
@@ -23,12 +24,21 @@ public class GroupMessagingTests
         return mock.Object;
     }
 
+    private static IBlobStorageService NullBlobStorage()
+    {
+        // Attachment URLs in these tests are always null, so this mock is never invoked.
+        return new Mock<IBlobStorageService>().Object;
+    }
+
+    private static MessageSendingService CreateService(MainDbContext db, TimeProvider? time = null)
+        => new(db, time ?? TimeProvider.System, NullBlobStorage());
+
     [Fact]
     public async Task SendGroupMessageAsync_Persists_Message_To_Database()
     {
         // Arrange
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, TimeProvider.System);
+        var service = CreateService(db);
 
         var dto = new GroupMessageDto
         {
@@ -54,7 +64,7 @@ public class GroupMessagingTests
     {
         // Arrange
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, TimeProvider.System);
+        var service = CreateService(db);
 
         var senderGuid = Guid.Parse("11111111-1111-1111-1111-111111111111");
         const int groupId = 42;
@@ -72,16 +82,12 @@ public class GroupMessagingTests
         // Act
         var result = await service.SendGroupMessageAsync(dto);
 
-        // Assert — returned object
-        Assert.Equal(senderGuid, result.Sender);
-        Assert.Equal(groupId, result.GroupId);
-
-        // Assert — what was actually persisted in the DB
+        // Assert — returned result
         var saved = await db.GroupMessages.FirstOrDefaultAsync();
         Assert.NotNull(saved);
         Assert.Equal(senderGuid, saved.Sender);
         Assert.Equal(groupId, saved.GroupId);
-        Assert.Equal(result.id, saved.id);
+        Assert.Equal(result.Id, saved.id);
     }
 
     [Fact]
@@ -91,7 +97,7 @@ public class GroupMessagingTests
         var frozenNow = new DateTimeOffset(2025, 3, 10, 12, 0, 0, TimeSpan.Zero);
 
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, FrozenTime(frozenNow));
+        var service = CreateService(db, FrozenTime(frozenNow));
 
         var dto = new GroupMessageDto
         {
@@ -104,10 +110,12 @@ public class GroupMessagingTests
         };
 
         // Act
-        var result = await service.SendGroupMessageAsync(dto);
+        await service.SendGroupMessageAsync(dto);
 
         // Assert
-        Assert.Equal(frozenNow, result.SentAt);
+        var saved = await db.GroupMessages.FirstOrDefaultAsync();
+        Assert.NotNull(saved);
+        Assert.Equal(frozenNow, saved.SentAt);
     }
 
     [Fact]
@@ -115,7 +123,7 @@ public class GroupMessagingTests
     {
         // Arrange
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, TimeProvider.System);
+        var service = CreateService(db);
 
         var dto = new GroupMessageDto
         {
@@ -131,16 +139,20 @@ public class GroupMessagingTests
         var result = await service.SendGroupMessageAsync(dto);
 
         // Assert
-        Assert.Null(result.AttachmentUrl);
-        Assert.Null(result.AttachmentType);
+        Assert.Null(result.SasAttachmentUrl);
     }
 
     [Fact]
     public async Task SendGroupMessageAsync_Supports_Image_Attachment()
     {
         // Arrange
+        var blobMock = new Mock<IBlobStorageService>();
+        blobMock
+            .Setup(b => b.GenerateSasReadUrl("images/photo.jpg"))
+            .Returns("https://storage.example.com/images/photo.jpg?sas=token");
+
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, TimeProvider.System);
+        var service = new MessageSendingService(db, TimeProvider.System, blobMock.Object);
 
         var dto = new GroupMessageDto
         {
@@ -155,9 +167,15 @@ public class GroupMessagingTests
         // Act
         var result = await service.SendGroupMessageAsync(dto);
 
-        // Assert
-        Assert.Equal("images/photo.jpg", result.AttachmentUrl);
-        Assert.Equal("image", result.AttachmentType);
+        // Assert — SAS URL was generated and returned
+        Assert.NotNull(result.SasAttachmentUrl);
+        Assert.Contains("sas=token", result.SasAttachmentUrl);
+
+        // Assert — raw blob name is stored in DB, not the SAS URL
+        var saved = await db.GroupMessages.FirstOrDefaultAsync();
+        Assert.NotNull(saved);
+        Assert.Equal("images/photo.jpg", saved.AttachmentUrl);
+        Assert.Equal("image", saved.AttachmentType);
     }
 
     [Fact]
@@ -165,7 +183,7 @@ public class GroupMessagingTests
     {
         // Arrange
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, TimeProvider.System);
+        var service = CreateService(db);
 
         const int groupId = 99;
         var senderA = Guid.NewGuid();
@@ -213,7 +231,7 @@ public class GroupMessagingTests
     {
         // Arrange
         await using var db = CreateDbContext();
-        var service = new MessageSendingService(db, TimeProvider.System);
+        var service = CreateService(db);
 
         var dto1 = new GroupMessageDto
         {

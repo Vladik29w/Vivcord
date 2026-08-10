@@ -58,12 +58,12 @@ namespace Vivcord.Server.Hubs
                 "ReceiveMessage",
                 senderId,
                 dto.Text,
-                savedMessage.id,
-                dto.AttachmentUrl,
+                savedMessage.Id,
+                savedMessage.SasAttachmentUrl,
                 dto.AttachmentType,
                 senderName);
 
-            return savedMessage.id;
+            return savedMessage.Id;
         }
     }
 }
