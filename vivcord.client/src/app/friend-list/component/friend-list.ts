@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, signal, OnInit, DestroyRef, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FriendListService } from '../service/friend-list.service';
@@ -10,7 +10,8 @@ import { GroupChatDTO } from '../../group-hub/dto/group-hub.dto';
   selector: 'app-friend-list',
   standalone: true,
   templateUrl: './friend-list.html',
-  styleUrl: './friend-list.css'
+  styleUrl: './friend-list.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FriendListComponent implements OnInit {
   private friendService = inject(FriendListService);

@@ -1,7 +1,6 @@
-import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef, ChangeDetectionStrategy, input, effect } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { switchMap } from 'rxjs';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { GroupHubService } from '../service/group-hub.service';
 import { GroupManagementService } from '../service/group-management.service';
 import { AccountService } from '@account/service/account.service';
@@ -13,15 +12,21 @@ import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.ser
   selector: 'app-group-hub',
   standalone: true,
   templateUrl: './group-hub.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GroupHubComponent implements OnInit, OnDestroy {
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly groupService = inject(GroupHubService);
   private readonly groupManagement = inject(GroupManagementService);
   private readonly accountService = inject(AccountService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly voiceCallApi = inject(VoiceCallApiService);
+
+  public readonly groupIdParam = input<string | undefined>(undefined, { alias: 'groupId' });
+  public readonly groupId = computed(() => {
+    const raw = this.groupIdParam();
+    return raw ? Number(raw) : null;
+  });
 
   public readonly isStartingCall = signal(false);
 
@@ -31,7 +36,6 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     return email ? email.split('@')[0] : 'You';
   });
 
-  public readonly groupId = signal<number | null>(null);
   public readonly groupInfo = signal<GroupChatDTO | null>(null);
   public readonly messages = signal<MessageDTO[]>([]);
   public readonly selectedFile = signal<File | null>(null);
@@ -43,9 +47,29 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     return info && me ? info.adminId === me : false;
   });
 
+  constructor() {
+    effect(() => {
+      const id = this.groupId();
+      if (!id) return;
+
+      this.groupService.loadGroupHistory(id)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: history => this.messages.set(history),
+          error: err => console.error('[GroupHubComponent] Failed to load history:', err),
+        });
+
+      this.groupManagement.getGroup(id)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: group => this.groupInfo.set(group),
+          error: err => console.error('[GroupHubComponent] Failed to load group info:', err),
+        });
+    });
+  }
+
   ngOnInit(): void {
     this.groupService.connectToHub();
-    this.subscribeToRoute();
     this.subscribeToIncomingMessages();
   }
 
@@ -132,35 +156,6 @@ export class GroupHubComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => console.log(`[GroupHub] Added ${userName}`),
         error: err => console.error('[GroupHub] Add member failed:', err),
-      });
-  }
-
-  private subscribeToRoute(): void {
-    this.route.paramMap
-      .pipe(
-        switchMap(params => {
-          const id = Number(params.get('groupId'));
-          this.groupId.set(id);
-          return this.groupService.loadGroupHistory(id);
-        }),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: history => this.messages.set(history),
-        error: err => console.error('[GroupHubComponent] Failed to load history:', err),
-      });
-
-    this.route.paramMap
-      .pipe(
-        switchMap(params => {
-          const id = Number(params.get('groupId'));
-          return this.groupManagement.getGroup(id);
-        }),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: group => this.groupInfo.set(group),
-        error: err => console.error('[GroupHubComponent] Failed to load group info:', err),
       });
   }
 

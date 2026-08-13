@@ -1,17 +1,26 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideZonelessChangeDetection } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { FriendListComponent } from './friend-list';
 
-import { FriendList } from './friend-list';
-
-describe('FriendList', () => {
-  let component: FriendList;
-  let fixture: ComponentFixture<FriendList>;
+describe('FriendListComponent', () => {
+  let component: FriendListComponent;
+  let fixture: ComponentFixture<FriendListComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [FriendList],
+      imports: [FriendListComponent],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(FriendList);
+    fixture = TestBed.createComponent(FriendListComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

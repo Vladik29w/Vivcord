@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LiveKitService } from '../../service/live-kit.service';
 import { environment } from '../../../../environments/environment';
@@ -8,6 +8,7 @@ import { environment } from '../../../../environments/environment';
   imports: [],
   templateUrl: './voice-chat.html',
   styleUrl: './voice-chat.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class VoiceChatComponent implements OnInit, OnDestroy {
   protected readonly livekitService = inject(LiveKitService);

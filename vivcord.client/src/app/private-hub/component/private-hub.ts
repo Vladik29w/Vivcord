@@ -1,7 +1,7 @@
-import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef} from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef, ChangeDetectionStrategy, input, effect } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { switchMap, tap } from 'rxjs';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { PrivateHubService } from '../service/private-hub.service';
 import { AccountService } from '@account/service/account.service';
 import { MessageDTO } from '../../shared/messaging/dto/message.dto';
@@ -12,14 +12,16 @@ import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.ser
   standalone: true,
   templateUrl: './private-hub.html',
   styleUrl: './private-hub.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PrivateHubComponent implements OnInit, OnDestroy {
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly chatService = inject(PrivateHubService);
   private readonly accountService = inject(AccountService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly voiceCallApi = inject(VoiceCallApiService);
+
+  public readonly usernameParam = input<string | undefined>(undefined, { alias: 'username' });
 
   public readonly isStartingCall = signal(false);
 
@@ -31,14 +33,33 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
   });
 
   public readonly targetUserId = signal<string | null>(null);
-  public readonly currentUsername = signal<string>('');
+  public readonly currentUsername = computed(() => this.usernameParam() ?? '');
   public readonly messages = signal<MessageDTO[]>([]);
   public readonly selectedFile = signal<File | null>(null);
   public readonly isUploading = signal(false);
 
+  constructor() {
+    effect(() => {
+      const username = this.usernameParam();
+      if (!username) return;
+
+      localStorage.setItem('lastChat', username);
+
+      this.chatService.loadUserProfile(username)
+        .pipe(
+          tap(profile => this.targetUserId.set(profile.id)),
+          switchMap(profile => this.chatService.loadChatHistory(profile.id)),
+          takeUntilDestroyed(this.destroyRef)
+        )
+        .subscribe({
+          next: history => this.messages.set(history),
+          error: err => console.error('[PrivateHubComponent] Failed to load chat:', err),
+        });
+    });
+  }
+
   ngOnInit(): void {
     this.chatService.connectToHub();
-    this.subscribeToRoute();
     this.subscribeToIncomingMessages();
   }
 
@@ -117,30 +138,6 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
     } finally {
       this.isUploading.set(false);
     }
-  }
-
-  private subscribeToRoute(): void {
-    this.route.paramMap
-      .pipe(
-        tap(params => {
-          const username = params.get('username');
-          if (username) {
-            this.currentUsername.set(username);
-            localStorage.setItem('lastChat', username);
-          }
-        }),
-        switchMap(params => {
-          const username = params.get('username') ?? '';
-          return this.chatService.loadUserProfile(username);
-        }),
-        tap(profile => this.targetUserId.set(profile.id)),
-        switchMap(profile => this.chatService.loadChatHistory(profile.id)),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: history => this.messages.set(history),
-        error: err => console.error('[PrivateHubComponent] Failed to load chat:', err),
-      });
   }
 
   private subscribeToIncomingMessages(): void {

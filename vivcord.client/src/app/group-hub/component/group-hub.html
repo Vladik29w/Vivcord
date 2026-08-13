@@ -23,11 +23,11 @@
 
   <main class="chat-messages">
     @for (msg of messages(); track $index) {
-    <div class="message-row" [class.my-message]="msg.senderId?.toLowerCase() === senderId()?.toLowerCase()"
-      [class.their-message]="msg.senderId?.toLowerCase() !== senderId()?.toLowerCase()">
+    <div class="message-row" [class.my-message]="msg.senderId.toLowerCase() === senderId()?.toLowerCase()"
+      [class.their-message]="msg.senderId.toLowerCase() !== senderId()?.toLowerCase()">
 
       <div class="message-bubble">
-        <strong>{{ msg.senderId?.toLowerCase() === senderId()?.toLowerCase() ? currentUserNickname() : (msg.senderName || msg.senderId) }}:</strong>
+        <strong>{{ msg.senderId.toLowerCase() === senderId()?.toLowerCase() ? currentUserNickname() : (msg.senderName || msg.senderId) }}:</strong>
 
         @if (msg.text) {
           <span>{{ msg.text }}</span>
