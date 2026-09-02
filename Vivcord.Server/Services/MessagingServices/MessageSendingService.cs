@@ -15,7 +15,7 @@ namespace Vivcord.Server.Services.MessagingServices
         private string? ToSasUrl(string? blobName)
         {
             if (blobName is null) return null;
-            var result = blobStorageService.GenerateSasReadUrl(blobName);
+            var result = blobStorageService.GenerateSasReadUrl(BlobContainers.ChatMedia, blobName);
             return result.IsError ? null : result.Value;
         }
 

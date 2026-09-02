@@ -5,49 +5,54 @@ using Vivcord.Server.DTO;
 
 namespace Vivcord.Server.Services
 {
+    public static class BlobContainers
+    {
+        public const string ChatMedia = "chat-media";
+        public const string ProfilePictures = "profile-pictures";
+    }
+
     public interface IBlobStorageService
     {
-        ErrorOr<UploadTokenResponse> GenerateUploadSasToken(string fileName, string contentType);
-        ErrorOr<string> GenerateSasReadUrl(string blobName);
+        ErrorOr<UploadTokenResponse> GenerateUploadSasToken(string containerName, string fileName, string contentType, TimeSpan? expiry = null);
+
+        ErrorOr<string> GenerateSasReadUrl(string containerName, string blobName, TimeSpan? expiry = null);
+
+        string GetPublicUrl(string containerName, string blobName);
+
+        Task<ErrorOr<Success>> DeleteBlobAsync(string containerName, string blobName, CancellationToken cancellationToken = default);
     }
 
     public class BlobStorageService : IBlobStorageService
     {
         private readonly string _connectionString;
-        private readonly string _containerName;
 
         public BlobStorageService(IConfiguration configuration)
         {
             _connectionString = configuration["AzureBlobStorage:ConnectionString"] ?? string.Empty;
             if (string.IsNullOrWhiteSpace(_connectionString))
                 throw new InvalidOperationException("AzureBlobStorage:ConnectionString is not configured.");
-
-            _containerName = configuration["AzureBlobStorage:ContainerName"] ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(_containerName))
-                throw new InvalidOperationException("AzureBlobStorage:ContainerName is not configured.");
         }
 
-        /// <summary>
-        /// Generates a short-lived SAS upload URL (15 min, write-only).
-        /// The client PUTs the file directly to Azure — no bytes pass through the backend.
-        /// </summary>
-        public ErrorOr<UploadTokenResponse> GenerateUploadSasToken(string fileName, string contentType)
+        public ErrorOr<UploadTokenResponse> GenerateUploadSasToken(
+            string containerName,
+            string fileName,
+            string contentType,
+            TimeSpan? expiry = null)
         {
             try
             {
                 var blobName = $"{Guid.NewGuid()}{Path.GetExtension(fileName)}";
-
-                var blobClient = new BlobClient(_connectionString, _containerName, blobName);
+                var blobClient = new BlobClient(_connectionString, containerName, blobName);
 
                 if (!blobClient.CanGenerateSasUri)
                     return Error.Unexpected(description: "BlobClient cannot generate SAS URI. Ensure the connection string includes the account key.");
 
                 var sasBuilder = new BlobSasBuilder
                 {
-                    BlobContainerName = _containerName,
+                    BlobContainerName = containerName,
                     BlobName = blobName,
                     Resource = "b",
-                    ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(15),
+                    ExpiresOn = DateTimeOffset.UtcNow.Add(expiry ?? TimeSpan.FromMinutes(15)),
                     ContentType = contentType,
                 };
                 sasBuilder.SetPermissions(BlobSasPermissions.Create | BlobSasPermissions.Write);
@@ -62,25 +67,24 @@ namespace Vivcord.Server.Services
             }
         }
 
-        /// <summary>
-        /// Generates a read-only SAS URL (1 hour) for an existing blob.
-        /// Called on each GetChatHistory — tokens are never stored in the database.
-        /// </summary>
-        public ErrorOr<string> GenerateSasReadUrl(string blobName)
+        public ErrorOr<string> GenerateSasReadUrl(
+            string containerName,
+            string blobName,
+            TimeSpan? expiry = null)
         {
             try
             {
-                var blobClient = new BlobClient(_connectionString, _containerName, blobName);
+                var blobClient = new BlobClient(_connectionString, containerName, blobName);
 
                 if (!blobClient.CanGenerateSasUri)
                     return Error.Unexpected(description: "BlobClient cannot generate SAS URI. Ensure the connection string includes the account key.");
 
                 var sasBuilder = new BlobSasBuilder
                 {
-                    BlobContainerName = _containerName,
+                    BlobContainerName = containerName,
                     BlobName = blobName,
                     Resource = "b",
-                    ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                    ExpiresOn = DateTimeOffset.UtcNow.Add(expiry ?? TimeSpan.FromHours(1)),
                 };
                 sasBuilder.SetPermissions(BlobSasPermissions.Read);
 
@@ -89,6 +93,29 @@ namespace Vivcord.Server.Services
             catch (Exception ex)
             {
                 return Error.Unexpected(description: $"Failed to generate read SAS URL: {ex.Message}");
+            }
+        }
+
+        public string GetPublicUrl(string containerName, string blobName)
+        {
+            var blobClient = new BlobClient(_connectionString, containerName, blobName);
+            return blobClient.Uri.ToString();
+        }
+
+        public async Task<ErrorOr<Success>> DeleteBlobAsync(
+            string containerName,
+            string blobName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var blobClient = new BlobClient(_connectionString, containerName, blobName);
+                await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
+                return Result.Success;
+            }
+            catch (Exception ex)
+            {
+                return Error.Unexpected(description: $"Failed to delete blob '{blobName}' from container '{containerName}': {ex.Message}");
             }
         }
     }

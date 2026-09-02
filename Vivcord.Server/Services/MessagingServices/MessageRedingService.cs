@@ -32,7 +32,7 @@ namespace Vivcord.Server.Services.MessagingServices
                 string? sasReadUrl = null;
                 if (m.AttachmentUrl is not null)
                 {
-                    var result = blobStorageService.GenerateSasReadUrl(m.AttachmentUrl);
+                    var result = blobStorageService.GenerateSasReadUrl(BlobContainers.ChatMedia, m.AttachmentUrl);
                     sasReadUrl = result.IsError ? null : result.Value;
                 }
 
@@ -71,7 +71,7 @@ namespace Vivcord.Server.Services.MessagingServices
                 string? sasReadUrl = null;
                 if (m.AttachmentUrl is not null)
                 {
-                    var result = blobStorageService.GenerateSasReadUrl(m.AttachmentUrl);
+                    var result = blobStorageService.GenerateSasReadUrl(BlobContainers.ChatMedia, m.AttachmentUrl);
                     sasReadUrl = result.IsError ? null : result.Value;
                 }
 

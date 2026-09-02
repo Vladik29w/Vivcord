@@ -18,7 +18,7 @@ namespace Vivcord.Server.Controllers
             if (userId is null)
                 return Unauthorized();
 
-            var result = blobStorageService.GenerateUploadSasToken(request.FileName, request.ContentType);
+            var result = blobStorageService.GenerateUploadSasToken(BlobContainers.ChatMedia, request.FileName, request.ContentType);
             return result.Match(Ok, Problem);
         }
     }

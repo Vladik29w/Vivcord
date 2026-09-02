@@ -148,7 +148,7 @@ public class GroupMessagingTests
         // Arrange
         var blobMock = new Mock<IBlobStorageService>();
         blobMock
-            .Setup(b => b.GenerateSasReadUrl("images/photo.jpg"))
+            .Setup(b => b.GenerateSasReadUrl(BlobContainers.ChatMedia, "images/photo.jpg"))
             .Returns("https://storage.example.com/images/photo.jpg?sas=token");
 
         await using var db = CreateDbContext();
