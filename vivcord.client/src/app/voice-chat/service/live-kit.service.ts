@@ -49,7 +49,7 @@ export class LiveKitService {
 
       const initialParticipants: VoiceParticipant[] = [];
       this.room.remoteParticipants.forEach(participant => {
-        initialParticipants.push({ identity: participant.identity, isSpeaking: false });
+        initialParticipants.push({ identity: participant.identity, name: participant.name, isSpeaking: false });
         participant.trackPublications.forEach(pub => {
           if (pub.isSubscribed && pub.track) {
             this.onTrackSubscribed(pub.track);
@@ -128,7 +128,7 @@ export class LiveKitService {
     room
       .on(RoomEvent.TrackSubscribed, (track) => this.onTrackSubscribed(track))
       .on(RoomEvent.TrackUnsubscribed, (track) => this.onTrackUnsubscribed(track))
-      .on(RoomEvent.ParticipantConnected, (p) => this.addParticipant(p.identity))
+      .on(RoomEvent.ParticipantConnected, (p) => this.addParticipant(p.identity, p.name))
       .on(RoomEvent.ParticipantDisconnected, (p) => this.removeParticipant(p.identity))
       .on(RoomEvent.ActiveSpeakersChanged, (speakers) => this.updateSpeakers(speakers))
       .on(RoomEvent.Disconnected, () => this.onDisconnected());
@@ -147,10 +147,10 @@ export class LiveKitService {
     this.isMuted.set(false);
     this.participants.set([]);
   }
-  private addParticipant(identity: string): void {
+  private addParticipant(identity: string, name?: string): void {
     this.participants.update((list) => [
       ...list,
-      { identity, isSpeaking: false },
+      { identity, name, isSpeaking: false },
     ]);
   }
   private removeParticipant(identity: string): void {

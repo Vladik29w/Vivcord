@@ -2,7 +2,7 @@
 <div class="chat-container">
 
   <header class="chat-header">
-    <h2>Chat: {{ currentUsername() }}</h2>
+    <h2>Chat: {{ targetDisplayName() || currentUsername() }}</h2>
     <button
       id="private-voice-call-btn"
       class="btn-voice-call"
@@ -20,7 +20,7 @@
       [class.their-message]="msg.senderId.toLowerCase() !== senderId()?.toLowerCase()">
 
       <div class="message-bubble">
-        <strong>{{ msg.senderId.toLowerCase() === senderId()?.toLowerCase() ? currentUserNickname() : currentUsername() }}:</strong>
+        <strong>{{ msg.senderId.toLowerCase() === senderId()?.toLowerCase() ? currentUserNickname() : (msg.senderName || targetDisplayName() || currentUsername()) }}:</strong>
 
         @if (msg.text) {
           <span>{{ msg.text }}</span>

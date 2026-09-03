@@ -32,8 +32,8 @@ export class GroupHubComponent implements OnInit, OnDestroy {
 
   public readonly senderId = computed(() => this.accountService.currentUser()?.id);
   public readonly currentUserNickname = computed(() => {
-    const email = this.accountService.currentUser()?.email;
-    return email ? email.split('@')[0] : 'You';
+    const user = this.accountService.currentUser();
+    return user?.displayName || (user?.email ? user.email.split('@')[0] : 'You');
   });
 
   public readonly groupInfo = signal<GroupChatDTO | null>(null);

@@ -56,8 +56,8 @@
       <div class="participants-list">
         <!-- Local Participant -->
         <div class="participant-card local" [class.speaking]="!livekitService.isMuted()">
-          <div class="avatar">You</div>
-          <div class="participant-name">You (Local)</div>
+          <div class="avatar">{{ localDisplayName().substring(0, 2).toUpperCase() }}</div>
+          <div class="participant-name">{{ localDisplayName() }} (You)</div>
           <div class="participant-status">
             @if (livekitService.isMuted()) {
             <span class="status-badge muted">Muted</span>
@@ -70,8 +70,8 @@
         <!-- Remote Participants -->
         @for (participant of livekitService.participants(); track participant.identity) {
         <div class="participant-card" [class.speaking]="participant.isSpeaking">
-          <div class="avatar">{{ participant.identity.substring(0, 2).toUpperCase() }}</div>
-          <div class="participant-name">{{ participant.identity }}</div>
+          <div class="avatar">{{ (participant.name || participant.identity).substring(0, 2).toUpperCase() }}</div>
+          <div class="participant-name">{{ participant.name || participant.identity }}</div>
           <div class="participant-status">
             @if (participant.isSpeaking) {
             <span class="status-badge speaking-badge">Speaking</span>

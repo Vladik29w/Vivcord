@@ -28,11 +28,12 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
   public readonly senderId = computed(() => this.accountService.currentUser()?.id);
 
   public readonly currentUserNickname = computed(() => {
-    const email = this.accountService.currentUser()?.email;
-    return email ? email.split('@')[0] : 'Ви';
+    const user = this.accountService.currentUser();
+    return user?.displayName || (user?.email ? user.email.split('@')[0] : 'Ви');
   });
 
   public readonly targetUserId = signal<string | null>(null);
+  public readonly targetDisplayName = signal<string | null>(null);
   public readonly currentUsername = computed(() => this.usernameParam() ?? '');
   public readonly messages = signal<MessageDTO[]>([]);
   public readonly selectedFile = signal<File | null>(null);
@@ -47,7 +48,10 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
 
       this.chatService.loadUserProfile(username)
         .pipe(
-          tap(profile => this.targetUserId.set(profile.id)),
+          tap(profile => {
+            this.targetUserId.set(profile.id);
+            this.targetDisplayName.set(profile.displayName || profile.userName);
+          }),
           switchMap(profile => this.chatService.loadChatHistory(profile.id)),
           takeUntilDestroyed(this.destroyRef)
         )

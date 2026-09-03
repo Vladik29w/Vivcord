@@ -5,6 +5,7 @@ import { MessagingService } from '../../shared/messaging/service/messaging.servi
 export interface UserProfileDTO {
   id: string;
   userName: string;
+  displayName?: string;
 }
 
 @Injectable({

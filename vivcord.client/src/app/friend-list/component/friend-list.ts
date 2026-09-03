@@ -80,4 +80,8 @@ export class FriendListComponent implements OnInit {
   navigateToGroup(groupId: number): void {
     this.router.navigate(['/group', groupId]);
   }
+
+  navigateToProfile(): void {
+    this.router.navigate(['/profile']);
+  }
 }

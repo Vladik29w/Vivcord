@@ -6,6 +6,7 @@ import { LoginComponent } from '../app/account/components/login.component/login'
 import { RegisterComponent } from '../app/account/components/register.component/register';
 import { VoiceChatComponent } from './voice-chat/component/voice-chat/voice-chat';
 import { GroupHubComponent } from './group-hub/component/group-hub';
+import { Profile } from './profile/component/profile';
 import { authGuard, guestGuard } from './auth.guard';
 
 export const routes: Routes = [
@@ -31,6 +32,10 @@ export const routes: Routes = [
       {
         path: 'group/:groupId',
         component: GroupHubComponent
+      },
+      {
+        path: 'profile',
+        component: Profile
       }
     ]
   },
