@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Services.MessagingServices;
 
@@ -23,8 +25,10 @@ namespace Vivcord.Server.Hubs
             };
             var savedMessage = await messageSendingService.SendPrivateMessageAsync(messageDto, Context.ConnectionAborted);
 
+            var senderDisplayName = Context.User?.FindFirst("displayName")?.Value;
+
             await Clients.User(dto.TargetUserId.ToString()).SendAsync(
-                "ReceiveMessage", senderId, dto.Text, savedMessage.Id, savedMessage.SasAttachmentUrl, dto.AttachmentType);
+                "ReceiveMessage", senderId, dto.Text, savedMessage.Id, savedMessage.SasAttachmentUrl, dto.AttachmentType, senderDisplayName);
 
             return savedMessage.Id;
         }

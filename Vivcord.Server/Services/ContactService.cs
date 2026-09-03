@@ -19,7 +19,8 @@ namespace Vivcord.Server.Services
                 .Select(u => new FindUserDTO
                 {
                     Id = u.Id.ToString(),
-                    Name = u.UserName!
+                    Name = u.UserName!,
+                    DisplayName = !string.IsNullOrWhiteSpace(u.DisplayName) ? u.DisplayName : u.UserName
                 })
                 .FirstOrDefaultAsync();
         }

@@ -22,6 +22,7 @@ namespace Vivcord.Server.DTO
     {
         public required string Name { get; init; }
         public required string Id { get; init; }
+        public string? DisplayName { get; init; }
     }
     public record RefreshTokenDTO
     {

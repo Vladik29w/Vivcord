@@ -28,13 +28,6 @@ namespace Vivcord.Server.Controllers
             var callerId = GetCallerGuid();
             if (callerId == null) return BadRequest("User id claim not found.");
 
-            var caller = await dbContext.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == callerId.Value, cancellationToken);
-
-            if (caller == null)
-                return NotFound("Caller user not found.");
-
             var target = await dbContext.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.UserName == request.TargetUsername, cancellationToken);
@@ -56,16 +49,15 @@ namespace Vivcord.Server.Controllers
             var sortedIds = new[] { callerId.Value, target.Id }.OrderBy(id => id).ToList();
             var roomId = $"voice_private_{sortedIds[0]}_{sortedIds[1]}";
             var identity = callerId.Value.ToString();
-            var displayName = caller.UserName ?? identity;
+            var displayName = User.FindFirstValue("displayName");
+            if (string.IsNullOrWhiteSpace(displayName))
+                displayName = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName) ?? identity;
 
             var token = voiceChatService.GenerateToken(roomId, identity, displayName);
             return Ok(new VoiceCallResponseDTO(roomId, token));
         }
 
-        /// <summary>
-        /// Initiates a group voice call for a verified group member.
-        /// Returns the group's stable VoiceRoomId so all members join the same room.
-        /// </summary>
+        
         [HttpPost("group-call")]
         public async Task<IActionResult> InitiateGroupCall(
             [FromBody] GroupCallRequestDTO request,
@@ -88,10 +80,6 @@ namespace Vivcord.Server.Controllers
                 return Problem(statusCode: StatusCodes.Status403Forbidden,
                     detail: "You are not a member of this group.");
 
-            var caller = await dbContext.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == callerId.Value, cancellationToken);
-
             if (group.VoiceRoomId == Guid.Empty)
             {
                 var groupToUpdate = await dbContext.GroupChats.FirstOrDefaultAsync(g => g.id == request.GroupId, cancellationToken);
@@ -105,7 +93,9 @@ namespace Vivcord.Server.Controllers
 
             var roomId = group.VoiceRoomId.ToString();
             var identity = callerId.Value.ToString();
-            var displayName = caller?.UserName ?? identity;
+            var displayName = User.FindFirstValue("displayName");
+            if (string.IsNullOrWhiteSpace(displayName))
+                displayName = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName) ?? identity;
 
             var token = voiceChatService.GenerateToken(roomId, identity, displayName);
             return Ok(new VoiceCallResponseDTO(roomId, token));

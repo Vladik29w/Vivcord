@@ -57,7 +57,9 @@ namespace Vivcord.Server.Services.MessagingServices
                 {
                     m.id,
                     m.Sender,
-                    SenderName = m.SenderUser != null ? m.SenderUser.UserName : null,
+                    SenderName = m.SenderUser != null
+                        ? (!string.IsNullOrWhiteSpace(m.SenderUser.DisplayName) ? m.SenderUser.DisplayName : m.SenderUser.UserName)
+                        : null,
                     m.GroupId,
                     m.Text,
                     m.AttachmentUrl,

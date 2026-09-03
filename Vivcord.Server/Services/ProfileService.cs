@@ -9,9 +9,23 @@ namespace Vivcord.Server.Services
         public Task<ErrorOr<Success>> ChangeUserDisplayName(Guid userId, string displayName, CancellationToken ct = default);
         public ErrorOr<UploadTokenResponse> GetProfilePictureSasToken(string fileName, string contentType);
         public Task<ErrorOr<Success>> UpdateProfilePictureUrl(Guid userId, string blobName, CancellationToken ct = default);
+        public Task<ErrorOr<UserProfileDTO>> GetUserProfile(Guid userId, CancellationToken ct = default);
     }
     public class ProfileService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IProfileService
     {
+        public async Task<ErrorOr<UserProfileDTO>> GetUserProfile(Guid userId, CancellationToken ct = default)
+        {
+            var user = await dbContext.Users
+                .Where(u => u.Id == userId)
+                .Select(u => new UserProfileDTO(u.Id, u.DisplayName, u.ProfilePictureUrl))
+                .FirstOrDefaultAsync(ct);
+
+            if (user is null)
+                return Error.NotFound("UserNotFound", "User not found.");
+
+            return user;
+        }
+
         public async Task<ErrorOr<Success>> ChangeUserDisplayName(Guid userId, string displayName, CancellationToken ct = default)
         { 
             int res = await dbContext.Users.Where(u => u.Id == userId).ExecuteUpdateAsync(u => u.SetProperty(u => u.DisplayName, displayName), ct);

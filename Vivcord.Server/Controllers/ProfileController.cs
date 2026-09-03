@@ -1,16 +1,32 @@
-﻿using ErrorOr;
+using ErrorOr;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Vivcord.Server.Controllers.Main;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Infastructure.Jwt;
+using Vivcord.Server.Models;
 using Vivcord.Server.Services;
 
 namespace Vivcord.Server.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class ProfileController(IProfileService profileService) : ApiMainController
+    public class ProfileController(
+        IProfileService profileService,
+        UserManager<AppUser> userManager,
+        ITokenService tokenService,
+        TimeProvider timeProvider) : ApiMainController
     {
+        [HttpGet("{userId:guid}")]
+        public async Task<IActionResult> GetUserProfile(Guid userId, CancellationToken ct)
+        {
+            var result = await profileService.GetUserProfile(userId, ct);
+            return result.Match<IActionResult>(
+                profile => Ok(profile),
+                errors => Problem(detail: errors.First().Description, statusCode: StatusCodes.Status404NotFound));
+        }
+
         [HttpPut("display-name")]
         public async Task<IActionResult> ChangeDisplayName(ProfileDTO profile, CancellationToken ct)
         {
@@ -20,9 +36,18 @@ namespace Vivcord.Server.Controllers
             try
             {
                 var result = await profileService.ChangeUserDisplayName(profile.UserId, profile.DisplayName, ct);
-                return result.Match<IActionResult>(
-                    success => Ok(),
-                    errors => Problem(detail: errors.First().Description, statusCode: StatusCodes.Status500InternalServerError));
+                if (result.IsError)
+                    return Problem(detail: result.Errors.First().Description, statusCode: StatusCodes.Status500InternalServerError);
+
+                var user = await userManager.FindByIdAsync(profile.UserId.ToString());
+                if (user != null)
+                {
+                    user.DisplayName = profile.DisplayName;
+                    var token = await tokenService.GetTokenAsync(user);
+                    Response.SetCookie(token, timeProvider);
+                }
+
+                return Ok();
             }
             catch (Exception ex)
             {

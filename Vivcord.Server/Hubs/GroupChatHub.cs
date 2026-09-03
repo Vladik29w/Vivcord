@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Services;
 using Vivcord.Server.Services.MessagingServices;
@@ -35,9 +37,12 @@ namespace Vivcord.Server.Hubs
         public async Task<int> SendMessage(GroupMessageDto dto)
         {
             var senderId = Context.UserIdentifier!;
-            var senderName = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+
+            var senderName = Context.User?.FindFirst("displayName")?.Value
+                ?? Context.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
                 ?? Context.User?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.UniqueName)?.Value
-                ?? Context.User?.Identity?.Name;
+                ?? Context.User?.Identity?.Name
+                ?? senderId;
 
             var messageDto = new GroupMessageDto
             {
