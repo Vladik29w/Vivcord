@@ -1,90 +1,134 @@
-<div class="voice-chat-container">
-  @if (livekitService.error(); as errorMessage) {
-  <div class="voice-chat-error">
-    <span class="error-message">{{ errorMessage }}</span>
-  </div>
-  }
-
-  @if (!livekitService.isConnected()) {
-  <div class="voice-chat-join-screen">
-    <h2>Voice Chat</h2>
-    @if (isJoining()) {
-      <div class="connecting-state">
-        <span class="spinner"></span>
-        <p>Connecting...</p>
-      </div>
-    }
-  </div>
-  } @else {
-  <div class="voice-chat-active-screen">
-    <div class="voice-chat-header">
-      <div class="room-info">
-        <h3>Room: {{ roomId() }}</h3>
-        <span class="participant-count">
-          {{ livekitService.participantCount() }} active peer(s)
-        </span>
-      </div>
-
-      <div class="voice-chat-controls">
-        <button (click)="livekitService.toggleMic()" [class.muted]="livekitService.isMuted()"
-          class="btn-control btn-mic" [attr.aria-label]="livekitService.isMuted() ? 'Unmute' : 'Mute'">
-          @if (livekitService.isMuted()) {
-          <span class="icon"></span> Unmute
-          } @else {
-          <span class="icon"></span> Mute
-          }
-        </button>
-
-
-        <button (click)="livekitService.toggleNoiseFilter()" [class.active]="livekitService.isNoiseFilterEnabled()"
-          class="btn-control btn-krisp" [attr.aria-label]="livekitService.isNoiseFilterEnabled() ? 'Disable Noise Filter' : 'Enable Noise Filter'">
-          @if (livekitService.isNoiseFilterEnabled()) {
-          <span class="icon"></span> Filter ON
-          } @else {
-          <span class="icon"></span> Filter OFF
-          }
-        </button>
-
-        <button (click)="leave()" class="btn-control btn-leave">
-          <span class="icon"></span> Leave
-        </button>
-      </div>
+@if (livekitService.isConnected()) {
+<div class="voice-panel-container">
+  <!-- Top bar of voice panel: Status & Quick Info -->
+  <div class="voice-panel-header">
+    <div class="call-indicator">
+      <span class="call-pulse-dot"></span>
+      <span class="call-status-label">{{ livekitService.activeCallTitle() || 'Voice Call' }}</span>
     </div>
+    <div class="header-actions">
+      <!-- Noise filter badge toggle -->
+      <button 
+        type="button"
+        class="btn-noise-filter" 
+        [class.active]="livekitService.isNoiseFilterEnabled()"
+        (click)="livekitService.toggleNoiseFilter()"
+        [title]="livekitService.isNoiseFilterEnabled() ? 'Noise suppression on' : 'Noise suppression off'">
+        Krisp
+      </button>
 
-    <div class="participants-section">
-      <h4>Participants</h4>
-      <div class="participants-list">
-        <!-- Local Participant -->
-        <div class="participant-card local" [class.speaking]="!livekitService.isMuted()">
-          <div class="avatar">{{ localDisplayName().substring(0, 2).toUpperCase() }}</div>
-          <div class="participant-name">{{ localDisplayName() }} (You)</div>
-          <div class="participant-status">
-            @if (livekitService.isMuted()) {
-            <span class="status-badge muted">Muted</span>
-            } @else {
-            <span class="status-badge speaking-badge">Active</span>
-            }
-          </div>
-        </div>
+      <!-- Disconnect call button -->
+      <button 
+        type="button" 
+        class="btn-end-call" 
+        (click)="leave()" 
+        title="End Call">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/>
+        </svg>
+      </button>
+    </div>
+  </div>
 
-        <!-- Remote Participants -->
-        @for (participant of livekitService.participants(); track participant.identity) {
-        <div class="participant-card" [class.speaking]="participant.isSpeaking">
-          <div class="avatar">{{ (participant.name || participant.identity).substring(0, 2).toUpperCase() }}</div>
-          <div class="participant-name">{{ participant.name || participant.identity }}</div>
-          <div class="participant-status">
-            @if (participant.isSpeaking) {
-            <span class="status-badge speaking-badge">Speaking</span>
-            }
+  <!-- Body: Participants Avatars (Left) & Audio Controls (Right) -->
+  <div class="voice-panel-body">
+    <!-- Participants avatars list -->
+    <div class="voice-participants-row">
+      <!-- Local User Avatar -->
+      <div 
+        class="participant-avatar-wrapper" 
+        [class.speaking]="livekitService.isLocalSpeaking()" 
+        [title]="localDisplayName() + ' (You)'">
+        <div class="avatar-circle local-avatar">
+          @if (accountService.currentUser()?.profilePictureUrl) {
+            <img [src]="accountService.currentUser()!.profilePictureUrl" alt="Avatar" class="avatar-img-circle" />
+          } @else {
+            <span>{{ localAvatarInitials() }}</span>
+          }
+        </div>
+        @if (livekitService.isMuted()) {
+          <div class="avatar-badge-muted" title="Microphone muted">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="2" y1="2" x2="22" y2="22"/>
+              <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/>
+            </svg>
           </div>
-        </div>
-        } @empty {
-        <div class="no-participants">
-          Waiting for others to join...
-        </div>
         }
       </div>
+
+      <!-- Remote Participants -->
+      @for (participant of livekitService.participants(); track participant.identity) {
+        <div 
+          class="participant-avatar-wrapper" 
+          [class.speaking]="participant.isSpeaking" 
+          [title]="participant.name || participant.identity">
+          <div class="avatar-circle">
+            @if (participant.avatarUrl) {
+              <img [src]="participant.avatarUrl" alt="Avatar" class="avatar-img-circle" />
+            } @else {
+              <span>{{ (participant.name || participant.identity).substring(0, 2).toUpperCase() }}</span>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Voice Control Action Buttons (Mute / Deafen) -->
+    <div class="voice-controls-buttons">
+      <!-- Mic Toggle Button -->
+      <button 
+        type="button" 
+        class="voice-btn mic-btn" 
+        [class.muted]="livekitService.isMuted()"
+        (click)="livekitService.toggleMic()" 
+        [title]="livekitService.isMuted() ? 'Unmute microphone' : 'Mute microphone'">
+        @if (livekitService.isMuted()) {
+          <!-- Muted Mic Icon -->
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="2" y1="2" x2="22" y2="22"/>
+            <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/>
+            <path d="M5 10v2a7 7 0 0 0 12 5"/>
+            <path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/>
+            <path d="M9 9v3a3 3 0 0 0 5.12 2.12"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        } @else {
+          <!-- Active Mic Icon -->
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        }
+      </button>
+
+      <!-- Deafen / Sound Toggle Button -->
+      <button 
+        type="button" 
+        class="voice-btn deafen-btn" 
+        [class.deafened]="livekitService.isDeafened()"
+        (click)="livekitService.toggleDeafen()" 
+        [title]="livekitService.isDeafened() ? 'Undeafen sound' : 'Deafen sound'">
+        @if (livekitService.isDeafened()) {
+          <!-- Deafened Icon -->
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="2" y1="2" x2="22" y2="22"/>
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <line x1="22" y1="9" x2="16" y2="15"/>
+            <line x1="16" y1="9" x2="22" y2="15"/>
+          </svg>
+        } @else {
+          <!-- Active Speaker Icon -->
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+          </svg>
+        }
+      </button>
     </div>
   </div>
-  }
 </div>
+}

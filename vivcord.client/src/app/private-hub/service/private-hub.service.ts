@@ -6,6 +6,7 @@ export interface UserProfileDTO {
   id: string;
   userName: string;
   displayName?: string;
+  profilePictureUrl?: string | null;
 }
 
 @Injectable({

@@ -53,7 +53,11 @@ namespace Vivcord.Server.Controllers
             if (string.IsNullOrWhiteSpace(displayName))
                 displayName = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName) ?? identity;
 
-            var token = voiceChatService.GenerateToken(roomId, identity, displayName);
+            var caller = await dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == callerId.Value, cancellationToken);
+
+            var token = voiceChatService.GenerateToken(roomId, identity, displayName, caller?.ProfilePictureUrl);
             return Ok(new VoiceCallResponseDTO(roomId, token));
         }
 
@@ -97,7 +101,11 @@ namespace Vivcord.Server.Controllers
             if (string.IsNullOrWhiteSpace(displayName))
                 displayName = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName) ?? identity;
 
-            var token = voiceChatService.GenerateToken(roomId, identity, displayName);
+            var caller = await dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == callerId.Value, cancellationToken);
+
+            var token = voiceChatService.GenerateToken(roomId, identity, displayName, caller?.ProfilePictureUrl);
             return Ok(new VoiceCallResponseDTO(roomId, token));
         }
 

@@ -3,19 +3,26 @@
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  background-color: var(--bg-app);
 }
 
 .chat-area {
-  flex-grow: 1;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   position: relative;
+  height: 100%;
+  background-color: var(--bg-app);
 }
 
 .friend-list-area {
   width: 300px;
+  max-width: 320px;
+  min-width: 260px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  overflow-y: auto;
+  background-color: var(--bg-sidebar);
 }

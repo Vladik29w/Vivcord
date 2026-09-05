@@ -6,27 +6,29 @@ import { LoginDTO } from '@account/dto/account-dto';
 
 @Component({
   selector: 'app-login',
+  standalone: true,
   imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './login.html',
+  styleUrl: './login.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoginComponent {
-  //injects
-  private _formBuilder = inject(FormBuilder);
-  private _accountService = inject(AccountService);
-  private _router = inject(Router);
-  //signals
-  error = signal<string | null>(null);
-  isLoading = signal<boolean>(false);
-  //form
-  loginForm = this._formBuilder.nonNullable.group({
+  private readonly _formBuilder = inject(FormBuilder);
+  private readonly _accountService = inject(AccountService);
+  private readonly _router = inject(Router);
+
+  readonly error = signal<string | null>(null);
+  readonly isLoading = signal<boolean>(false);
+  readonly showPassword = signal<boolean>(false);
+
+  readonly loginForm = this._formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
   onSubmit(): void {
     if (this.loginForm.invalid) {
-      this.loginForm.markAllAsTouched()
+      this.loginForm.markAllAsTouched();
       return;
     }
     this.isLoading.set(true);
@@ -37,13 +39,13 @@ export class LoginComponent {
 
     this._accountService.login(dto).subscribe({
       next: () => {
-        this.isLoading.set(false)
-        this._router.navigate(['/'])
+        this.isLoading.set(false);
+        this._router.navigate(['/']);
       },
       error: (err) => {
         this.isLoading.set(false);
-        this.error.set('Login failed');
+        this.error.set(err?.error?.detail || err?.error?.title || 'Invalid email or password');
       }
-    })
+    });
   }
 }

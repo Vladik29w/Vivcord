@@ -1,100 +1,132 @@
-<div class="profile-container">
-  <h2>User Profile</h2>
+<div class="profile-page-container">
+  <div class="profile-card-wrapper">
+    <!-- Header -->
+    <header class="profile-header">
+      <div class="profile-title-group">
+        <h2>My Profile</h2>
+        <p class="profile-subtitle">Manage your account settings and appearance</p>
+      </div>
+      <button type="button" class="btn-logout" (click)="accountService.logout()" title="Sign out">
+        Sign Out
+      </button>
+    </header>
 
-  @if (errorMessage()) {
-    <div class="alert alert-error">
-      {{ errorMessage() }}
-    </div>
-  }
+    @if (errorMessage()) {
+      <div class="alert alert-error">
+        {{ errorMessage() }}
+      </div>
+    }
 
-  @if (successMessage()) {
-    <div class="alert alert-success">
-      {{ successMessage() }}
-    </div>
-  }
+    @if (successMessage()) {
+      <div class="alert alert-success">
+        {{ successMessage() }}
+      </div>
+    }
 
-  @if (isLoading()) {
-    <p>Loading profile...</p>
-  } @else {
-    <div class="profile-card">
-      <!-- Avatar Section -->
-      <div class="profile-field avatar-field">
-        <label>Avatar:</label>
-        <div class="avatar-preview-wrapper">
-          @if (profile()?.profilePictureUrl) {
-            <img
-              [src]="profile()?.profilePictureUrl"
-              alt="User avatar"
-              class="avatar-image"
-            />
+    @if (isLoading()) {
+      <div class="profile-loading">
+        <span class="spinner"></span>
+        <p>Loading profile data...</p>
+      </div>
+    } @else {
+      <div class="profile-card">
+        <!-- Avatar Section -->
+        <div class="profile-section avatar-section">
+          <label class="section-label">Avatar</label>
+          <div class="avatar-edit-container">
+            <div class="avatar-preview-wrapper">
+              @if (profile()?.profilePictureUrl) {
+                <img
+                  [src]="profile()?.profilePictureUrl"
+                  alt="User avatar"
+                  class="avatar-image"
+                />
+              } @else {
+                <div class="avatar-placeholder">
+                  {{ (profile()?.displayName || accountService.currentUser()?.displayName || 'ME').substring(0, 2).toUpperCase() }}
+                </div>
+              }
+            </div>
+
+            <div class="avatar-controls">
+              <input
+                type="file"
+                #avatarInput
+                accept="image/*"
+                (change)="onAvatarFileSelected($event)"
+                style="display: none"
+              />
+
+              <button
+                type="button"
+                class="btn-action-primary"
+                [disabled]="isUploadingAvatar()"
+                (click)="avatarInput.click()"
+              >
+                {{ isUploadingAvatar() ? 'Uploading...' : 'Change Avatar' }}
+              </button>
+              <small class="help-text">JPG, PNG or WebP up to 5MB</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nickname Section -->
+        <div class="profile-section nickname-section">
+          <label class="section-label">Display Name</label>
+
+          @if (!isEditingNickname()) {
+            <div class="nickname-view-row">
+              <span class="display-name-text">
+                {{ profile()?.displayName || accountService.currentUser()?.displayName || 'Not set' }}
+              </span>
+              <button
+                type="button"
+                class="btn-action-secondary"
+                (click)="startEditingNickname()"
+              >
+                Edit
+              </button>
+            </div>
           } @else {
-            <div class="avatar-placeholder">
-              No avatar
+            <div class="edit-nickname-group">
+              <input
+                type="text"
+                class="nickname-input"
+                [(ngModel)]="newDisplayName"
+                placeholder="Enter new display name..."
+                [disabled]="isSavingNickname()"
+                autofocus
+              />
+              <div class="edit-buttons-group">
+                <button
+                  type="button"
+                  class="btn-action-primary"
+                  [disabled]="isSavingNickname()"
+                  (click)="saveDisplayName()"
+                >
+                  {{ isSavingNickname() ? 'Saving...' : 'Save' }}
+                </button>
+                <button
+                  type="button"
+                  class="btn-action-secondary"
+                  [disabled]="isSavingNickname()"
+                  (click)="cancelEditingNickname()"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           }
         </div>
 
-        <input
-          type="file"
-          #avatarInput
-          accept="image/*"
-          (change)="onAvatarFileSelected($event)"
-          style="display: none"
-        />
-
-        <button
-          type="button"
-          class="btn btn-change"
-          [disabled]="isUploadingAvatar()"
-          (click)="avatarInput.click()"
-        >
-          {{ isUploadingAvatar() ? 'Uploading...' : 'Change' }}
-        </button>
-      </div>
-
-      <!-- Nickname Section -->
-      <div class="profile-field nickname-field">
-        <label>Nickname:</label>
-
-        @if (!isEditingNickname()) {
-          <span class="display-name-text">
-            {{ profile()?.displayName || accountService.currentUser()?.displayName || 'No nickname set' }}
-          </span>
-          <button
-            type="button"
-            class="btn btn-change"
-            (click)="startEditingNickname()"
-          >
-            Change
-          </button>
-        } @else {
-          <div class="edit-nickname-group">
-            <input
-              type="text"
-              class="nickname-input"
-              [(ngModel)]="newDisplayName"
-              placeholder="Enter new nickname"
-              [disabled]="isSavingNickname()"
-            />
-            <button
-              type="button"
-              class="btn btn-save"
-              [disabled]="isSavingNickname()"
-              (click)="saveDisplayName()"
-            >
-              {{ isSavingNickname() ? 'Saving...' : 'Save' }}
-            </button>
-            <button
-              type="button"
-              class="btn btn-cancel"
-              [disabled]="isSavingNickname()"
-              (click)="cancelEditingNickname()"
-            >
-              Cancel
-            </button>
+        <!-- Account Email Section -->
+        <div class="profile-section email-section">
+          <label class="section-label">Email</label>
+          <div class="email-view">
+            <span>{{ accountService.currentUser()?.email || '—' }}</span>
           </div>
-        }
+        </div>
       </div>
-    </div>
-  }
+    }
+  </div>
 </div>

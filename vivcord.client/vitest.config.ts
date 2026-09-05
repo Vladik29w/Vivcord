@@ -38,9 +38,15 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./test-setup.ts'],
+    server: {
+      deps: {
+        inline: ['livekit-rnnoise-processor', 'livekit-client'],
+      },
+    },
     alias: {
       '@environments': path.resolve(__dirname, './src/environments'),
       '@account': path.resolve(__dirname, './src/app/account'),
     },
   },
 });
+

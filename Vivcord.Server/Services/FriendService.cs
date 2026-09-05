@@ -1,4 +1,4 @@
-﻿using ErrorOr;
+using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
@@ -19,7 +19,7 @@ namespace Vivcord.Server.Services
             var friends = await dbContext.UserFriends
              .AsNoTracking()
              .Where(uf => uf.UserId == ownerId)
-             .Select(uf => new FriendDTO(uf.FriendId, uf.Friend.UserName!))
+             .Select(uf => new FriendDTO(uf.FriendId, uf.Friend.UserName!, uf.Friend.ProfilePictureUrl))
              .ToListAsync(cancellationToken);
 
             return friends;
@@ -47,7 +47,7 @@ namespace Vivcord.Server.Services
             dbContext.UserFriends.Add(newFriendship);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return new FriendDTO(friend.Id, friend.UserName!);
+            return new FriendDTO(friend.Id, friend.UserName!, friend.ProfilePictureUrl);
         }
         public async Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove, CancellationToken cancellationToken = default)
         {

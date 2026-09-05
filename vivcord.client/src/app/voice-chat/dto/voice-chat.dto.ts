@@ -14,5 +14,6 @@ export interface VoiceCallResponse {
 export interface VoiceParticipant {
   identity: string;
   name?: string;
+  avatarUrl?: string | null;
   isSpeaking: boolean;
 }

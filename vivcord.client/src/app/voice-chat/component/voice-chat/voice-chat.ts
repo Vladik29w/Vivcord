@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, computed, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LiveKitService } from '../../service/live-kit.service';
 import { AccountService } from '@account/service/account.service';
@@ -6,23 +6,25 @@ import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-voice-chat',
-  imports: [],
+  standalone: true,
   templateUrl: './voice-chat.html',
   styleUrl: './voice-chat.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class VoiceChatComponent implements OnInit, OnDestroy {
+export class VoiceChatComponent implements OnInit {
   protected readonly livekitService = inject(LiveKitService);
   protected readonly accountService = inject(AccountService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
-  protected readonly roomId = signal<string>('');
-  protected readonly isJoining = signal(false);
-
   protected readonly localDisplayName = computed(() => {
     const user = this.accountService.currentUser();
     return user?.displayName || (user?.email ? user.email.split('@')[0] : 'You');
+  });
+
+  protected readonly localAvatarInitials = computed(() => {
+    const name = this.localDisplayName();
+    return (name ? name.substring(0, 2) : 'ME').toUpperCase();
   });
 
   ngOnInit(): void {
@@ -30,30 +32,17 @@ export class VoiceChatComponent implements OnInit, OnDestroy {
     const roomId = params.get('roomId');
     const token = params.get('token');
 
-    if (!roomId || !token) {
-      this.livekitService.error.set('Missing room ID or token. Please initiate a call from a chat.');
-      return;
-    }
-
-    this.roomId.set(roomId);
-    this.join(token);
-  }
-
-  async join(token: string): Promise<void> {
-    this.isJoining.set(true);
-    try {
-      await this.livekitService.connect(environment.liveKitUrl, token);
-    } finally {
-      this.isJoining.set(false);
+    // If accessed via standalone route with query params, connect and redirect home
+    if (roomId && token && !this.livekitService.isConnected()) {
+      this.livekitService.connect(environment.liveKitUrl, token, roomId).then(() => {
+        this.router.navigate(['/']);
+      }).catch(err => {
+        console.error('Failed to connect from route:', err);
+      });
     }
   }
 
   async leave(): Promise<void> {
     await this.livekitService.disconnect();
-    this.router.navigate(['/']);
-  }
-
-  ngOnDestroy(): void {
-    this.livekitService.disconnect();
   }
 }

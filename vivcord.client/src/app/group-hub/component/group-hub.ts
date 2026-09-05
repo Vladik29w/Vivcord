@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef, ChangeDetectionStrategy, input, effect } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef, ChangeDetectionStrategy, input, effect, ViewChild, ElementRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { GroupHubService } from '../service/group-hub.service';
@@ -7,20 +7,26 @@ import { AccountService } from '@account/service/account.service';
 import { MessageDTO } from '../../shared/messaging/dto/message.dto';
 import { GroupChatDTO } from '../dto/group-hub.dto';
 import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.service';
+import { LiveKitService } from '../../voice-chat/service/live-kit.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-group-hub',
   standalone: true,
   templateUrl: './group-hub.html',
+  styleUrl: './group-hub.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GroupHubComponent implements OnInit, OnDestroy {
+  @ViewChild('messagesViewport') private messagesViewport?: ElementRef<HTMLElement>;
+
   private readonly router = inject(Router);
   private readonly groupService = inject(GroupHubService);
   private readonly groupManagement = inject(GroupManagementService);
   private readonly accountService = inject(AccountService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly voiceCallApi = inject(VoiceCallApiService);
+  public readonly livekitService = inject(LiveKitService);
 
   public readonly groupIdParam = input<string | undefined>(undefined, { alias: 'groupId' });
   public readonly groupId = computed(() => {
@@ -29,17 +35,30 @@ export class GroupHubComponent implements OnInit, OnDestroy {
   });
 
   public readonly isStartingCall = signal(false);
+  public readonly isCallActive = computed(() => this.livekitService.isConnected());
 
   public readonly senderId = computed(() => this.accountService.currentUser()?.id);
   public readonly currentUserNickname = computed(() => {
     const user = this.accountService.currentUser();
-    return user?.displayName || (user?.email ? user.email.split('@')[0] : 'You');
+    return user?.displayName || (user?.email ? user.email.split('@')[0] : 'yourname');
   });
 
   public readonly groupInfo = signal<GroupChatDTO | null>(null);
   public readonly messages = signal<MessageDTO[]>([]);
   public readonly selectedFile = signal<File | null>(null);
   public readonly isUploading = signal(false);
+
+  public readonly groupAvatarInitials = computed(() => {
+    const name = this.groupInfo()?.name;
+    return (name ? name.substring(0, 2) : 'GP').toUpperCase();
+  });
+
+  public readonly myAvatarInitials = computed(() => {
+    const name = this.currentUserNickname();
+    return (name ? name.substring(0, 2) : 'ME').toUpperCase();
+  });
+
+  public readonly myProfilePictureUrl = computed(() => this.accountService.currentUser()?.profilePictureUrl ?? null);
 
   public readonly isAdmin = computed(() => {
     const info = this.groupInfo();
@@ -49,13 +68,21 @@ export class GroupHubComponent implements OnInit, OnDestroy {
 
   constructor() {
     effect(() => {
+      this.messages();
+      this.scrollToBottom();
+    });
+
+    effect(() => {
       const id = this.groupId();
       if (!id) return;
 
       this.groupService.loadGroupHistory(id)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
-          next: history => this.messages.set(history),
+          next: history => {
+            this.messages.set(history);
+            this.scrollToBottom();
+          },
           error: err => console.error('[GroupHubComponent] Failed to load history:', err),
         });
 
@@ -77,7 +104,12 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     this.groupService.disconnect();
   }
 
-  public startVoiceCall(): void {
+  public handleCallAction(): void {
+    if (this.isCallActive()) {
+      this.livekitService.disconnect();
+      return;
+    }
+
     const gId = this.groupId();
     if (!gId || this.isStartingCall()) return;
 
@@ -85,14 +117,36 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     this.voiceCallApi.initiateGroupCall(gId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ roomId, token }) => {
-          this.router.navigate(['/voice-chat'], { queryParams: { roomId, token } });
+        next: async ({ roomId, token }) => {
+          try {
+            const title = this.groupInfo()?.name || `Group #${gId}`;
+            await this.livekitService.connect(environment.liveKitUrl, token, roomId, title);
+          } catch (err) {
+            console.error('[GroupHub] Voice call connection failed:', err);
+          } finally {
+            this.isStartingCall.set(false);
+          }
         },
         error: err => {
           console.error('[GroupHub] Voice call failed:', err);
           this.isStartingCall.set(false);
         },
       });
+  }
+
+  public isMyMessage(msgSenderId: string): boolean {
+    const current = this.senderId();
+    return !!current && msgSenderId.toLowerCase() === current.toLowerCase();
+  }
+
+  public formatMessageTime(timestamp?: string | Date): string {
+    if (!timestamp) {
+      const now = new Date();
+      return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
   public onFileSelected(event: Event): void {
@@ -173,5 +227,17 @@ export class GroupHubComponent implements OnInit, OnDestroy {
         };
         this.messages.update(m => [...m, fullMsg]);
       });
+  }
+
+  public scrollToBottom(smooth = false): void {
+    setTimeout(() => {
+      const el = this.messagesViewport?.nativeElement;
+      if (el) {
+        el.scrollTo({
+          top: el.scrollHeight,
+          behavior: smooth ? 'smooth' : 'instant',
+        });
+      }
+    }, 50);
   }
 }

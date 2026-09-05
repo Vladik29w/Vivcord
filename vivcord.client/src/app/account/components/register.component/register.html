@@ -1,31 +1,57 @@
-<div class="register-container">
-  <div class="register-card">
-    <h1>Sign Up</h1>
+<div class="auth-page-wrapper">
+  <div class="auth-card">
+    <!-- Brand Header -->
+    <header class="auth-header">
+      <div class="auth-logo-badge">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="8.5" cy="7" r="4"/>
+          <line x1="20" y1="8" x2="20" y2="14"/>
+          <line x1="23" y1="11" x2="17" y2="11"/>
+        </svg>
+      </div>
+      <h1 class="auth-title">Create an Account</h1>
+      <p class="auth-subtitle">Join the Vivcord community today</p>
+    </header>
 
-    <!-- Global error -->
+    <!-- Global Error Banner -->
     @if (error()) {
-      <div class="error-message">
-        {{ error() }}
+      <div class="auth-error-banner" role="alert">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>{{ error() }}</span>
       </div>
     }
 
-    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
-      <!-- Name field -->
+    <!-- Form -->
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form" novalidate>
+      <!-- Full Name field -->
       <div class="form-group">
-        <label for="name">Full Name</label>
-        <input
-          id="name"
-          type="text"
-          formControlName="name"
-          placeholder="Enter your full name"
-          [class.is-invalid]="registerForm.get('name')?.invalid && registerForm.get('name')?.touched"
-        />
+        <label for="name" class="form-label">Full Name</label>
+        <div class="input-container" [class.has-error]="registerForm.get('name')?.invalid && registerForm.get('name')?.touched">
+          <span class="input-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </span>
+          <input
+            id="name"
+            type="text"
+            formControlName="name"
+            placeholder="John Doe"
+            autocomplete="name"
+            class="form-input"
+          />
+        </div>
         @if (registerForm.get('name')?.invalid && registerForm.get('name')?.touched) {
-          <div class="error-text">
+          <div class="form-error-hint">
             @if (registerForm.get('name')?.hasError('required')) {
               <span>Name is required</span>
-            }
-            @if (registerForm.get('name')?.hasError('minlength')) {
+            } @else if (registerForm.get('name')?.hasError('minlength')) {
               <span>Name must be at least 2 characters</span>
             }
           </div>
@@ -34,21 +60,29 @@
 
       <!-- Email field -->
       <div class="form-group">
-        <label for="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          formControlName="email"
-          placeholder="Enter your email"
-          [class.is-invalid]="registerForm.get('email')?.invalid && registerForm.get('email')?.touched"
-        />
+        <label for="email" class="form-label">Email address</label>
+        <div class="input-container" [class.has-error]="registerForm.get('email')?.invalid && registerForm.get('email')?.touched">
+          <span class="input-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+            </svg>
+          </span>
+          <input
+            id="email"
+            type="email"
+            formControlName="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+            class="form-input"
+          />
+        </div>
         @if (registerForm.get('email')?.invalid && registerForm.get('email')?.touched) {
-          <div class="error-text">
+          <div class="form-error-hint">
             @if (registerForm.get('email')?.hasError('required')) {
               <span>Email is required</span>
-            }
-            @if (registerForm.get('email')?.hasError('email')) {
-              <span>Enter a valid email</span>
+            } @else if (registerForm.get('email')?.hasError('email')) {
+              <span>Please enter a valid email address</span>
             }
           </div>
         }
@@ -56,24 +90,70 @@
 
       <!-- Password field -->
       <div class="form-group">
-        <label for="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          formControlName="password"
-          placeholder="Minimum 6 characters with a digit"
-          [class.is-invalid]="registerForm.get('password')?.invalid && registerForm.get('password')?.touched"
-        />
+        <label for="password" class="form-label">Password</label>
+        <div class="input-container" [class.has-error]="registerForm.get('password')?.invalid && registerForm.get('password')?.touched">
+          <span class="input-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </span>
+          <input
+            id="password"
+            [type]="showPassword() ? 'text' : 'password'"
+            formControlName="password"
+            placeholder="At least 6 characters with a digit"
+            autocomplete="new-password"
+            class="form-input"
+          />
+          <button
+            type="button"
+            class="btn-input-action"
+            (click)="showPassword.set(!showPassword())"
+            [title]="showPassword() ? 'Hide password' : 'Show password'"
+          >
+            @if (showPassword()) {
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            } @else {
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            }
+          </button>
+        </div>
+
+        <!-- Password Strength Meter -->
+        @if (passwordStrength().score > 0) {
+          <div class="password-meter-container">
+            <div class="password-meter-segments">
+              @for (segment of [1, 2, 3, 4]; track segment) {
+                <div 
+                  class="meter-segment" 
+                  [class.active]="segment <= passwordStrength().score"
+                  [style.--segment-color]="passwordStrength().color"
+                ></div>
+              }
+            </div>
+            <div class="password-meter-info">
+              <span class="password-meter-label" [style.color]="passwordStrength().color">
+                {{ passwordStrength().label }}
+              </span>
+            </div>
+          </div>
+        }
+
         @if (registerForm.get('password')?.invalid && registerForm.get('password')?.touched) {
-          <div class="error-text">
+          <div class="form-error-hint">
             @if (registerForm.get('password')?.hasError('required')) {
               <span>Password is required</span>
-            }
-            @if (registerForm.get('password')?.hasError('minlength')) {
+            } @else if (registerForm.get('password')?.hasError('minlength')) {
               <span>Password must be at least 6 characters</span>
-            }
-            @if (registerForm.get('password')?.hasError('pattern')) {
-              <span>Password must contain a digit</span>
+            } @else if (registerForm.get('password')?.hasError('pattern')) {
+              <span>Password must contain at least one digit</span>
             }
           </div>
         }
@@ -81,47 +161,79 @@
 
       <!-- Confirm Password field -->
       <div class="form-group">
-        <label for="confirmPassword">Confirm Password</label>
-        <input
-          id="confirmPassword"
-          type="password"
-          formControlName="confirmPassword"
-          placeholder="Repeat your password"
-          [class.is-invalid]="registerForm.get('confirmPassword')?.invalid && registerForm.get('confirmPassword')?.touched"
-        />
-        @if (registerForm.get('confirmPassword')?.invalid && registerForm.get('confirmPassword')?.touched) {
-          <div class="error-text">
-            @if (registerForm.get('confirmPassword')?.hasError('required')) {
-              <span>Password confirmation is required</span>
+        <label for="confirmPassword" class="form-label">Confirm Password</label>
+        <div class="input-container" [class.has-error]="(registerForm.get('confirmPassword')?.invalid || registerForm.hasError('passwordMismatch')) && registerForm.get('confirmPassword')?.touched">
+          <span class="input-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </span>
+          <input
+            id="confirmPassword"
+            [type]="showConfirmPassword() ? 'text' : 'password'"
+            formControlName="confirmPassword"
+            placeholder="Repeat your password"
+            autocomplete="new-password"
+            class="form-input"
+          />
+          <button
+            type="button"
+            class="btn-input-action"
+            (click)="showConfirmPassword.set(!showConfirmPassword())"
+            [title]="showConfirmPassword() ? 'Hide password' : 'Show password'"
+          >
+            @if (showConfirmPassword()) {
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            } @else {
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
             }
-          </div>
+          </button>
+        </div>
+        @if (registerForm.get('confirmPassword')?.touched) {
+          @if (registerForm.get('confirmPassword')?.hasError('required')) {
+            <div class="form-error-hint">
+              <span>Password confirmation is required</span>
+            </div>
+          } @else if (registerForm.hasError('passwordMismatch')) {
+            <div class="form-error-hint">
+              <span>Passwords do not match</span>
+            </div>
+          }
         }
       </div>
-
-      <!-- Password mismatch error -->
-      @if (registerForm.hasError('passwordMismatch') && registerForm.get('confirmPassword')?.touched) {
-        <div class="error-text">
-          <span>Passwords do not match</span>
-        </div>
-      }
 
       <!-- Submit button -->
       <button
         type="submit"
         [disabled]="isLoading() || registerForm.invalid"
-        class="submit-btn"
+        class="auth-submit-btn"
       >
         @if (isLoading()) {
-          <span class="loading">Loading...</span>
+          <span class="spinner-small"></span>
+          <span>Creating account...</span>
         } @else {
           <span>Create Account</span>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
         }
       </button>
     </form>
 
-    <!-- Link to login -->
-    <p class="login-link">
-      Already have an account? <a routerLink="/login">Sign In</a>
-    </p>
+    <!-- Footer links -->
+    <footer class="auth-footer">
+      <p>
+        Already have an account? 
+        <a routerLink="/login" class="auth-switch-link">Sign In</a>
+      </p>
+    </footer>
   </div>
 </div>

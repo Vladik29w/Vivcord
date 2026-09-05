@@ -32,8 +32,25 @@ export abstract class MessagingService {
 
     this._hubConnection.on(
       'ReceiveMessage',
-      (senderId: string, text: string, messageId: number, attachmentUrl?: string, attachmentType?: 'image' | 'video', senderName?: string) => {
-        this.messageReceived$.next({ id: messageId, status: 'sent', senderId, senderName, text, attachmentUrl, attachmentType });
+      (
+        senderId: string,
+        text: string,
+        messageId: number,
+        attachmentUrl?: string,
+        attachmentType?: 'image' | 'video',
+        senderName?: string,
+        senderAvatarUrl?: string
+      ) => {
+        this.messageReceived$.next({
+          id: messageId,
+          status: 'sent',
+          senderId,
+          senderName,
+          senderAvatarUrl,
+          text,
+          attachmentUrl,
+          attachmentType
+        });
       }
     );
 

@@ -20,7 +20,8 @@ namespace Vivcord.Server.Services
                 {
                     Id = u.Id.ToString(),
                     Name = u.UserName!,
-                    DisplayName = !string.IsNullOrWhiteSpace(u.DisplayName) ? u.DisplayName : u.UserName
+                    DisplayName = !string.IsNullOrWhiteSpace(u.DisplayName) ? u.DisplayName : u.UserName,
+                    ProfilePictureUrl = u.ProfilePictureUrl
                 })
                 .FirstOrDefaultAsync();
         }

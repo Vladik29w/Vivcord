@@ -1,4 +1,4 @@
-﻿namespace Vivcord.Server.DTO
+namespace Vivcord.Server.DTO
 {
-    public record FriendDTO(Guid Id, string UserName);
+    public record FriendDTO(Guid Id, string UserName, string? ProfilePictureUrl = null);
 }

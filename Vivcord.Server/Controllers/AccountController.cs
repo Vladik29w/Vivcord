@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Vivcord.Server.Controllers.Main;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Infastructure.Jwt;
+using Vivcord.Server.Models;
 using Vivcord.Server.Services;
 
 namespace Vivcord.Server.Controllers
@@ -72,7 +74,7 @@ namespace Vivcord.Server.Controllers
 
         [Authorize]
         [HttpGet("me")]
-        public IActionResult GetActiveUser()
+        public async Task<IActionResult> GetActiveUser([FromServices] UserManager<AppUser> userManager)
         {
             var email = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue(JwtRegisteredClaimNames.Email);
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
@@ -89,11 +91,14 @@ namespace Vivcord.Server.Controllers
                 .Select(c => c.Value)
                 .ToList();
 
+            var user = await userManager.FindByIdAsync(userId);
+
             return Ok(new UserDTO
             {
                 Id = userId,
                 Email = email,
-                DisplayName = displayName,
+                DisplayName = string.IsNullOrWhiteSpace(displayName) ? (user?.DisplayName ?? string.Empty) : displayName,
+                ProfilePictureUrl = user?.ProfilePictureUrl,
                 Roles = roles
             });
         }

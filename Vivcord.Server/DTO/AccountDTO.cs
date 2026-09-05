@@ -5,6 +5,7 @@ namespace Vivcord.Server.DTO
         public string Id { get; init; } = string.Empty;
         public string Email { get; init; } = string.Empty;
         public string DisplayName { get; init; } = string.Empty;
+        public string? ProfilePictureUrl { get; init; }
         public List<string> Roles { get; init; } = new List<string>();
     }
     public record RegisterDTO
@@ -23,6 +24,7 @@ namespace Vivcord.Server.DTO
         public required string Name { get; init; }
         public required string Id { get; init; }
         public string? DisplayName { get; init; }
+        public string? ProfilePictureUrl { get; init; }
     }
     public record RefreshTokenDTO
     {

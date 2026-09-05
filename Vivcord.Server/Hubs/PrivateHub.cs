@@ -8,7 +8,7 @@ using Vivcord.Server.Services.MessagingServices;
 namespace Vivcord.Server.Hubs
 {
     [Authorize]
-    public class PrivateHub(IMessageSendingService messageSendingService) : Hub
+    public class PrivateHub(IMessageSendingService messageSendingService, MainDbContext dbContext) : Hub
     {
         public async Task<int> SendMessage(SendPrivateMessageDto dto)
         {
@@ -27,8 +27,19 @@ namespace Vivcord.Server.Hubs
 
             var senderDisplayName = Context.User?.FindFirst("displayName")?.Value;
 
+            var senderUser = await dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == messageDto.SenderId, Context.ConnectionAborted);
+
             await Clients.User(dto.TargetUserId.ToString()).SendAsync(
-                "ReceiveMessage", senderId, dto.Text, savedMessage.Id, savedMessage.SasAttachmentUrl, dto.AttachmentType, senderDisplayName);
+                "ReceiveMessage",
+                senderId,
+                dto.Text,
+                savedMessage.Id,
+                savedMessage.SasAttachmentUrl,
+                dto.AttachmentType,
+                senderDisplayName,
+                senderUser?.ProfilePictureUrl);
 
             return savedMessage.Id;
         }
