@@ -25,8 +25,8 @@ export class ProfileService {
   }
 
 
-  public changeDisplayName(userId: string, displayName: string): Observable<void> {
-    const payload: ChangeDisplayNameRequest = { userId, displayName };
+  public changeDisplayName(displayName: string): Observable<void> {
+    const payload: ChangeDisplayNameRequest = { displayName };
     return this._http.put<void>(
       `${this._apiUrl}/Profile/display-name`,
       payload,
@@ -55,8 +55,8 @@ export class ProfileService {
   }
 
 
-  public updateProfilePictureUrl(userId: string, blobName: string): Observable<void> {
-    const payload: UpdateProfilePictureRequest = { userId, blobName };
+  public updateProfilePictureUrl(blobName: string): Observable<void> {
+    const payload: UpdateProfilePictureRequest = { blobName };
     return this._http.put<void>(
       `${this._apiUrl}/Profile/picture-url`,
       payload,
@@ -70,9 +70,9 @@ export class ProfileService {
    * 2. PUT file directly to Azure Blob Storage
    * 3. Update profile picture URL in the database
    */
-  public async uploadAvatar(userId: string, file: File): Promise<void> {
+  public async uploadAvatar(file: File): Promise<void> {
     const tokenResponse = await firstValueFrom(this.getUploadToken(file.name, file.type));
     await firstValueFrom(this.uploadToBlob(tokenResponse.uploadUrl, file));
-    await firstValueFrom(this.updateProfilePictureUrl(userId, tokenResponse.blobName));
+    await firstValueFrom(this.updateProfilePictureUrl(tokenResponse.blobName));
   }
 }

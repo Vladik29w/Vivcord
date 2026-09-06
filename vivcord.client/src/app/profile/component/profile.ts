@@ -80,17 +80,11 @@ export class Profile implements OnInit {
       return;
     }
 
-    const userId = this.profile()?.userId ?? this.accountService.currentUser()?.id;
-    if (!userId) {
-      this.errorMessage.set('User not found.');
-      return;
-    }
-
     this.isSavingNickname.set(true);
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
-    this.profileService.changeDisplayName(userId, trimmed)
+    this.profileService.changeDisplayName(trimmed)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
@@ -113,18 +107,13 @@ export class Profile implements OnInit {
     if (!input.files || input.files.length === 0) return;
 
     const file = input.files[0];
-    const userId = this.profile()?.userId ?? this.accountService.currentUser()?.id;
-    if (!userId) {
-      this.errorMessage.set('User not found.');
-      return;
-    }
 
     this.isUploadingAvatar.set(true);
     this.errorMessage.set(null);
     this.successMessage.set(null);
 
     try {
-      await this.profileService.uploadAvatar(userId, file);
+      await this.profileService.uploadAvatar(file);
       this.successMessage.set('Avatar updated successfully!');
       this.loadProfile();
     } catch (err) {

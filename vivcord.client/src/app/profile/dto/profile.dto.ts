@@ -1,5 +1,6 @@
 export interface UserProfileDTO {
   userId: string;
+  userName?: string;
   displayName: string;
   profilePictureUrl: string | null;
 }
@@ -10,11 +11,10 @@ export interface UploadTokenResponse {
 }
 
 export interface ChangeDisplayNameRequest {
-  userId: string;
   displayName: string;
 }
 
 export interface UpdateProfilePictureRequest {
-  userId: string;
   blobName: string;
 }
+

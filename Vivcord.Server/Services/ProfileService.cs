@@ -6,10 +6,10 @@ namespace Vivcord.Server.Services
 {
     public interface IProfileService
     {
+        public Task<ErrorOr<UserProfileDTO>> GetUserProfile(Guid userId, CancellationToken ct = default);
         public Task<ErrorOr<Success>> ChangeUserDisplayName(Guid userId, string displayName, CancellationToken ct = default);
         public ErrorOr<UploadTokenResponse> GetProfilePictureSasToken(string fileName, string contentType);
         public Task<ErrorOr<Success>> UpdateProfilePictureUrl(Guid userId, string blobName, CancellationToken ct = default);
-        public Task<ErrorOr<UserProfileDTO>> GetUserProfile(Guid userId, CancellationToken ct = default);
     }
     public class ProfileService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IProfileService
     {
