@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Vivcord.Server.Models
 {
@@ -7,6 +8,8 @@ namespace Vivcord.Server.Models
     [Index(nameof(NormalizedEmail), IsUnique = true)]
     public class AppUser : IdentityUser<Guid>
     {
+        [AllowNull]
+        public required override string UserName { get; set; }
         public string DisplayName { get; set; } = string.Empty;
         public string? ProfilePictureUrl { get; set; }
         public ICollection<AppUserFriend> Friends { get; set; } = new List<AppUserFriend>();
