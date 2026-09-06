@@ -119,6 +119,47 @@
           }
         </div>
 
+        <!-- Username Section -->
+        <div class="profile-section username-section">
+          <div class="section-label-row">
+            <label class="section-label">Username</label>
+            <span class="badge-tag">Unique Handle</span>
+          </div>
+
+          <div class="username-view-row">
+            <div class="username-content">
+              <span class="username-at">@</span>
+              <span class="username-text">
+                {{ profile()?.userName || '—' }}
+              </span>
+            </div>
+
+            @if (profile()?.userName) {
+              <button
+                type="button"
+                class="btn-copy-username"
+                [class.copied]="isCopied()"
+                (click)="copyUserName()"
+                title="Copy username to share with others"
+              >
+                @if (isCopied()) {
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <span>Copied!</span>
+                } @else {
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  <span>Copy</span>
+                }
+              </button>
+            }
+          </div>
+          <small class="help-text">Your unique handle used by others to find and add you.</small>
+        </div>
+
         <!-- Account Email Section -->
         <div class="profile-section email-section">
           <label class="section-label">Email</label>

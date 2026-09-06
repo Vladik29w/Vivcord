@@ -6,6 +6,6 @@ namespace Vivcord.Server.DTO
 
     public record UpdateProfilePictureRequest(string BlobName);
 
-    public record UserProfileDTO(Guid UserId, string DisplayName, string? ProfilePictureUrl);
+    public record UserProfileDTO(Guid UserId, string UserName, string DisplayName, string? ProfilePictureUrl);
 }
 

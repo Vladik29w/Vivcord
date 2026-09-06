@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ProfileService } from '../service/profile.service';
 import { AccountService } from '@account/service/account.service';
+import { ToastService } from '../../shared/toast/service/toast.service';
 import { UserProfileDTO } from '../dto/profile.dto';
 
 @Component({
@@ -15,6 +16,7 @@ import { UserProfileDTO } from '../dto/profile.dto';
 export class Profile implements OnInit {
   private readonly profileService = inject(ProfileService);
   public readonly accountService = inject(AccountService);
+  private readonly toastService = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
   public readonly profile = signal<UserProfileDTO | null>(null);
@@ -22,9 +24,12 @@ export class Profile implements OnInit {
   public readonly isEditingNickname = signal<boolean>(false);
   public readonly isSavingNickname = signal<boolean>(false);
   public readonly isUploadingAvatar = signal<boolean>(false);
+  public readonly isCopied = signal<boolean>(false);
   public readonly newDisplayName = signal<string>('');
   public readonly errorMessage = signal<string | null>(null);
   public readonly successMessage = signal<string | null>(null);
+
+  private copyTimeout?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
     this.loadProfile();
@@ -52,6 +57,7 @@ export class Profile implements OnInit {
           console.error('[Profile] Failed to load user profile:', err);
           this.profile.set({
             userId: currentUser.id,
+            userName: (currentUser as any).userName || '',
             displayName: currentUser.displayName,
             profilePictureUrl: null,
           });
@@ -59,6 +65,32 @@ export class Profile implements OnInit {
           this.isLoading.set(false);
         },
       });
+  }
+
+  public async copyUserName(): Promise<void> {
+    const userName = this.profile()?.userName;
+    if (!userName) return;
+
+    try {
+      await navigator.clipboard.writeText(userName);
+      this.isCopied.set(true);
+
+      if (this.copyTimeout) {
+        clearTimeout(this.copyTimeout);
+      }
+      this.copyTimeout = setTimeout(() => {
+        this.isCopied.set(false);
+      }, 2000);
+
+      this.toastService.show({
+        title: 'Copied!',
+        message: `@${userName} copied to clipboard`,
+        type: 'success',
+        duration: 2500,
+      });
+    } catch (err) {
+      console.error('[Profile] Failed to copy username:', err);
+    }
   }
 
   public startEditingNickname(): void {

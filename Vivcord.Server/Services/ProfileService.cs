@@ -17,7 +17,7 @@ namespace Vivcord.Server.Services
         {
             var user = await dbContext.Users
                 .Where(u => u.Id == userId)
-                .Select(u => new UserProfileDTO(u.Id, u.DisplayName, u.ProfilePictureUrl))
+                .Select(u => new UserProfileDTO(u.Id, u.UserName, u.DisplayName, u.ProfilePictureUrl))
                 .FirstOrDefaultAsync(ct);
 
             if (user is null)
