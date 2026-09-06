@@ -36,7 +36,14 @@ namespace Vivcord.Server.Services
             dbContext.GroupChats.Add(newGroup);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return new GroupChatDTO(newGroup.id, newGroup.name, newGroup.adminId, [userId], newGroup.VoiceRoomId);
+            return new GroupChatDTO
+            {
+                Id = newGroup.id,
+                Name = newGroup.name,
+                AdminId = newGroup.adminId,
+                MemberIds = [userId],
+                VoiceRoomId = newGroup.VoiceRoomId
+            };
         }
 
         public async Task<ErrorOr<Success>> DeleteGroupAsync(Guid userId, int groupId, CancellationToken cancellationToken = default)
@@ -161,13 +168,20 @@ namespace Vivcord.Server.Services
             var groupDto = await dbContext.GroupChats
                 .AsNoTracking()
                 .Where(g => g.id == groupId)
-                .Select(g => new GroupChatDTO(
-                    g.id,
-                    g.name,
-                    g.adminId,
-                    g.Members.Select(m => m.UserId).ToList(),
-                    g.VoiceRoomId
-                ))
+                .Select(g => new GroupChatDTO
+                {
+                    Id = g.id,
+                    Name = g.name,
+                    AdminId = g.adminId,
+                    MemberIds = g.Members.Select(m => m.UserId).ToList(),
+                    VoiceRoomId = g.VoiceRoomId,
+                    Members = g.Members.Select(m => new UserProfileDTO(
+                        m.UserId,
+                        m.User.UserName ?? string.Empty,
+                        m.User.DisplayName,
+                        m.User.ProfilePictureUrl
+                    )).ToList()
+                })
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (groupDto == null)
@@ -191,13 +205,14 @@ namespace Vivcord.Server.Services
             var groups = await dbContext.GroupChats
                 .AsNoTracking()
                 .Where(g => g.Members.Any(m => m.UserId == userId))
-                .Select(g => new GroupChatDTO(
-                    g.id,
-                    g.name,
-                    g.adminId,
-                    g.Members.Select(m => m.UserId).ToList(),
-                    g.VoiceRoomId
-                ))
+                .Select(g => new GroupChatDTO
+                {
+                    Id = g.id,
+                    Name = g.name,
+                    AdminId = g.adminId,
+                    MemberIds = g.Members.Select(m => m.UserId).ToList(),
+                    VoiceRoomId = g.VoiceRoomId
+                })
                 .ToListAsync(cancellationToken);
 
             return groups.AsReadOnly();
