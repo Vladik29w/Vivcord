@@ -512,6 +512,10 @@ namespace Vivcord.xUnit.GroupManagmentTests
             Assert.Equal(admin.Id, result.Value.AdminId);
             Assert.Equal(voiceRoomId, result.Value.VoiceRoomId);
             Assert.Contains(admin.Id, result.Value.MemberIds);
+            Assert.NotNull(result.Value.Members);
+            Assert.Single(result.Value.Members);
+            Assert.Equal(admin.Id, result.Value.Members[0].UserId);
+            Assert.Equal("admin", result.Value.Members[0].UserName);
         }
 
         [Fact]
