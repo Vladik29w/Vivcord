@@ -5,7 +5,7 @@ import { GroupHubService } from '../service/group-hub.service';
 import { GroupManagementService } from '../service/group-management.service';
 import { AccountService } from '@account/service/account.service';
 import { MessageDTO } from '../../shared/messaging/dto/message.dto';
-import { GroupChatDTO } from '../dto/group-hub.dto';
+import { GroupChatDTO, UserProfileDTO } from '../dto/group-hub.dto';
 import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.service';
 import { LiveKitService } from '../../voice-chat/service/live-kit.service';
 import { environment } from '../../../environments/environment';
@@ -16,6 +16,9 @@ import { environment } from '../../../environments/environment';
   templateUrl: './group-hub.html',
   styleUrl: './group-hub.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(window:keydown.escape)': 'onEscapeKey()',
+  },
 })
 export class GroupHubComponent implements OnInit, OnDestroy {
   @ViewChild('messagesViewport') private messagesViewport?: ElementRef<HTMLElement>;
@@ -64,6 +67,27 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     const info = this.groupInfo();
     const me = this.senderId();
     return info && me ? info.adminId === me : false;
+  });
+
+  public readonly isMembersModalOpen = signal(false);
+  public readonly isAddingMember = signal(false);
+  public readonly isRemovingMember = signal<string | null>(null);
+  public readonly addMemberError = signal<string | null>(null);
+  public readonly addMemberSuccess = signal<string | null>(null);
+
+  public readonly members = computed(() => this.groupInfo()?.members ?? []);
+  public readonly membersMap = computed(() => {
+    const map = new Map<string, UserProfileDTO>();
+    for (const m of this.members()) {
+      if (m.userId) {
+        map.set(m.userId.toLowerCase(), m);
+      }
+    }
+    return map;
+  });
+  public readonly membersCount = computed(() => {
+    const info = this.groupInfo();
+    return info?.members?.length ?? info?.memberIds?.length ?? 0;
   });
 
   constructor() {
@@ -201,16 +225,121 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     }
   }
 
-  public addMember(userName: string): void {
-    const gId = this.groupId();
-    if (!gId || !userName.trim()) return;
+  public onEscapeKey(): void {
+    if (this.isMembersModalOpen()) {
+      this.closeMembersModal();
+    }
+  }
 
-    this.groupManagement.addMember(gId, userName)
+  public openMembersModal(): void {
+    this.addMemberError.set(null);
+    this.addMemberSuccess.set(null);
+    this.isMembersModalOpen.set(true);
+    const id = this.groupId();
+    if (id) {
+      this.reloadGroup(id);
+    }
+  }
+
+  public closeMembersModal(): void {
+    this.isMembersModalOpen.set(false);
+    this.addMemberError.set(null);
+    this.addMemberSuccess.set(null);
+  }
+
+  public reloadGroup(id: number): void {
+    this.groupManagement.getGroup(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => console.log(`[GroupHub] Added ${userName}`),
-        error: err => console.error('[GroupHub] Add member failed:', err),
+        next: group => this.groupInfo.set(group),
+        error: err => console.error('[GroupHubComponent] Failed to reload group info:', err),
       });
+  }
+
+  public addMember(userName: string, inputEl?: HTMLInputElement): void {
+    const gId = this.groupId();
+    const trimmed = userName.trim();
+    if (!gId || !trimmed || this.isAddingMember()) return;
+
+    this.isAddingMember.set(true);
+    this.addMemberError.set(null);
+    this.addMemberSuccess.set(null);
+
+    this.groupManagement.addMember(gId, trimmed)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.isAddingMember.set(false);
+          this.addMemberSuccess.set(`User @${trimmed} added`);
+          if (inputEl) inputEl.value = '';
+          this.reloadGroup(gId);
+          setTimeout(() => this.addMemberSuccess.set(null), 3000);
+        },
+        error: err => {
+          this.isAddingMember.set(false);
+          const msg = err.error?.title || err.error?.detail || (typeof err.error === 'string' ? err.error : null) || 'Failed to add member';
+          this.addMemberError.set(msg);
+        },
+      });
+  }
+
+  public removeMember(userName: string): void {
+    const gId = this.groupId();
+    const trimmed = userName.trim();
+    if (!gId || !trimmed || this.isRemovingMember()) return;
+
+    this.isRemovingMember.set(trimmed);
+    this.groupManagement.removeMember(gId, trimmed)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.isRemovingMember.set(null);
+          this.reloadGroup(gId);
+        },
+        error: err => {
+          this.isRemovingMember.set(null);
+          console.error('[GroupHub] Remove member failed:', err);
+        },
+      });
+  }
+
+  public getMemberInitials(name?: string): string {
+    if (!name) return 'U';
+    return name.substring(0, 2).toUpperCase();
+  }
+
+  public getSenderAvatarUrl(senderId?: string, fallbackAvatarUrl?: string | null): string | null {
+    if (senderId && this.isMyMessage(senderId)) {
+      const myPic = this.myProfilePictureUrl();
+      return myPic?.trim() ? myPic : null;
+    }
+    if (fallbackAvatarUrl?.trim()) {
+      return fallbackAvatarUrl.trim();
+    }
+    if (!senderId) return null;
+    const member = this.membersMap().get(senderId.toLowerCase());
+    const pic = member?.profilePictureUrl;
+    return pic?.trim() ? pic : null;
+  }
+
+  public getSenderDisplayName(senderId?: string, fallbackName?: string): string {
+    if (senderId && this.isMyMessage(senderId)) {
+      return this.currentUserNickname();
+    }
+    if (!senderId) return fallbackName || 'Unknown';
+    const member = this.membersMap().get(senderId.toLowerCase());
+    if (member) {
+      return member.displayName || member.userName || fallbackName || senderId;
+    }
+    return fallbackName || senderId;
+  }
+
+  public getSenderInitials(senderId?: string, fallbackName?: string): string {
+    if (senderId && this.isMyMessage(senderId)) {
+      return this.myAvatarInitials();
+    }
+    const name = this.getSenderDisplayName(senderId, fallbackName);
+    return (name ? name.substring(0, 2) : 'U').toUpperCase();
   }
 
   private subscribeToIncomingMessages(): void {

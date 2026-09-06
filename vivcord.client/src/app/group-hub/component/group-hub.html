@@ -16,14 +16,23 @@
     </div>
 
     <div class="chat-header-actions">
-      @if (isAdmin()) {
-        <div class="admin-add-member">
-          <input #addInput type="text" placeholder="Add by nickname..." class="admin-input" (keyup.enter)="addMember(addInput.value); addInput.value = ''">
-          <button type="button" class="btn-admin-add" (click)="addMember(addInput.value); addInput.value = ''" title="Add member">
-            +
-          </button>
-        </div>
-      }
+      <!-- Group Members Button -->
+      <button
+        type="button"
+        class="btn-group-members"
+        (click)="openMembersModal()"
+        title="Group members">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span>Members</span>
+        @if (membersCount()) {
+          <span class="members-badge">{{ membersCount() }}</span>
+        }
+      </button>
 
       <!-- Dynamic Group Voice Call Button -->
       <button
@@ -57,20 +66,16 @@
       @for (msg of messages(); track $index) {
         <div class="message-group" [class.is-mine]="isMyMessage(msg.senderId)">
           <div class="message-avatar">
-            @if (isMyMessage(msg.senderId)) {
-              @if (myProfilePictureUrl()) {
-                <img [src]="myProfilePictureUrl()" alt="Avatar" class="avatar-img-circle" />
-              } @else {
-                <span>{{ myAvatarInitials() }}</span>
-              }
+            @if (getSenderAvatarUrl(msg.senderId, msg.senderAvatarUrl)) {
+              <img [src]="getSenderAvatarUrl(msg.senderId, msg.senderAvatarUrl)" alt="Avatar" class="avatar-img-circle" />
             } @else {
-              <span>{{ (msg.senderName || msg.senderId).substring(0, 2).toUpperCase() }}</span>
+              <span>{{ getSenderInitials(msg.senderId, msg.senderName) }}</span>
             }
           </div>
 
           <div class="message-content-wrapper">
             <div class="message-header-meta">
-              <span class="sender-name">{{ isMyMessage(msg.senderId) ? currentUserNickname() : (msg.senderName || msg.senderId) }}</span>
+              <span class="sender-name">{{ getSenderDisplayName(msg.senderId, msg.senderName) }}</span>
               <span class="message-time">{{ formatMessageTime(msg.timestamp) }}</span>
             </div>
 
@@ -170,6 +175,153 @@
       </button>
     </div>
   </footer>
+
+  <!-- Group Members Modal -->
+  @if (isMembersModalOpen()) {
+    <div class="members-modal-backdrop" (click)="closeMembersModal()">
+      <div class="members-modal-card" (click)="$event.stopPropagation()">
+        
+        <!-- Modal Header -->
+        <div class="members-modal-header">
+          <div class="members-modal-title">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <h3>Group Members</h3>
+            <span class="members-count-pill">{{ membersCount() }}</span>
+          </div>
+          <button type="button" class="btn-close-modal" (click)="closeMembersModal()" title="Close">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Add Member Section (Top) -->
+        <div class="members-modal-add-section">
+          @if (isAdmin()) {
+            <label class="add-section-label">Add member by nickname</label>
+            <div class="add-member-input-row">
+              <div class="add-input-wrapper">
+                <span class="input-at-prefix">@</span>
+                <input
+                  #newMemberInput
+                  type="text"
+                  placeholder="Enter user nickname..."
+                  class="modal-add-input"
+                  [disabled]="isAddingMember()"
+                  (keyup.enter)="addMember(newMemberInput.value, newMemberInput)"
+                  autofocus
+                />
+              </div>
+              <button
+                type="button"
+                class="btn-modal-add"
+                [disabled]="isAddingMember() || !newMemberInput.value.trim()"
+                (click)="addMember(newMemberInput.value, newMemberInput)">
+                @if (isAddingMember()) {
+                  <span class="spinner-small"></span>
+                } @else {
+                  <span>Add</span>
+                }
+              </button>
+            </div>
+
+            @if (addMemberError()) {
+              <div class="modal-feedback-alert error">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>{{ addMemberError() }}</span>
+              </div>
+            }
+
+            @if (addMemberSuccess()) {
+              <div class="modal-feedback-alert success">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <span>{{ addMemberSuccess() }}</span>
+              </div>
+            }
+          } @else {
+            <div class="non-admin-note">
+              <span>Only group admin can add or remove members.</span>
+            </div>
+          }
+        </div>
+
+        <!-- Members List Section -->
+        <div class="members-modal-list-section">
+          <span class="list-section-header">MEMBERS — {{ membersCount() }}</span>
+          
+          <div class="members-scrollable-list">
+            @for (m of members(); track m.userId) {
+              <div class="member-row-card">
+                <div class="member-avatar-col">
+                  @if (m.profilePictureUrl) {
+                    <img [src]="m.profilePictureUrl" alt="Avatar" class="member-avatar-img" />
+                  } @else {
+                    <div class="member-avatar-placeholder">
+                      {{ getMemberInitials(m.displayName || m.userName) }}
+                    </div>
+                  }
+                </div>
+
+                <div class="member-info-col">
+                  <div class="member-primary-line">
+                    <span class="member-display-name">{{ m.displayName || m.userName }}</span>
+                    @if (m.userId === groupInfo()?.adminId) {
+                      <span class="badge-role-admin" title="Group Admin">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                        Admin
+                      </span>
+                    }
+                    @if (m.userId === senderId()) {
+                      <span class="badge-role-you">You</span>
+                    }
+                  </div>
+                  <span class="member-username">&#64;{{ m.userName }}</span>
+                </div>
+
+                @if (isAdmin() && m.userId !== groupInfo()?.adminId) {
+                  <button
+                    type="button"
+                    class="btn-remove-member"
+                    [disabled]="isRemovingMember() === m.userName"
+                    (click)="removeMember(m.userName)"
+                    title="Remove member">
+                    @if (isRemovingMember() === m.userName) {
+                      <span class="spinner-small"></span>
+                    } @else {
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    }
+                  </button>
+                }
+              </div>
+            } @empty {
+              <div class="empty-members-state">
+                <p>No members found</p>
+              </div>
+            }
+          </div>
+        </div>
+
+      </div>
+    </div>
+  }
 
 </div>
 } @else {
