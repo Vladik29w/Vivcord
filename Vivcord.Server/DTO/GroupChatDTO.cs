@@ -9,6 +9,10 @@ namespace Vivcord.Server.DTO
         public Guid VoiceRoomId { get; init; }
         public IReadOnlyList<UserProfileDTO>? Members { get; init; }
     }
+
     public record CreateGroupChatDTO(string Name);
-    public record GroupChatMemberDTO(int GroupChatId, Guid UserId);
+
+    public record AddGroupMemberRequest(string Username);
+
+    public record AssignGroupAdminRequest(string NewAdminUsername);
 }

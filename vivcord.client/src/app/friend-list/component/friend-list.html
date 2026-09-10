@@ -126,14 +126,14 @@
                 @if (friend.profilePictureUrl) {
                   <img [src]="friend.profilePictureUrl" alt="Avatar" class="avatar-img-circle" />
                 } @else {
-                  <span>{{ getInitials(friend.userName) }}</span>
+                  <span>{{ getInitials(friend.displayName || friend.userName) }}</span>
                 }
               </div>
               <span class="status-dot online"></span>
             </div>
 
             <div class="chat-item-details">
-              <span class="chat-item-name">{{ friend.userName }}</span>
+              <span class="chat-item-name">{{ friend.displayName || friend.userName }}</span>
             </div>
 
             <button 

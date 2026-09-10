@@ -51,8 +51,12 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpPost("add-member/{groupId}")]
-        public async Task<IActionResult> AddMember(int groupId, string username, CancellationToken cancellationToken)
+        public async Task<IActionResult> AddMember(int groupId, [FromBody] AddGroupMemberRequest? request, [FromQuery] string? username, CancellationToken cancellationToken)
         {
+            var targetUsername = request?.Username ?? username;
+            if (string.IsNullOrWhiteSpace(targetUsername))
+                return BadRequest("Username is required.");
+
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
             if (string.IsNullOrEmpty(userId))
@@ -61,7 +65,7 @@ namespace Vivcord.Server.Controllers
             if (!Guid.TryParse(userId, out var userIdGuid))
                 return BadRequest("Invalid user id format.");
 
-            var addMemberResult = await groupChatService.AddMemberAsync(userIdGuid, groupId, username, cancellationToken);
+            var addMemberResult = await groupChatService.AddMemberAsync(userIdGuid, groupId, targetUsername, cancellationToken);
 
             return addMemberResult.Match(
                 success => Ok(),
@@ -70,8 +74,12 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpDelete("remove-member/{groupId}")]
-        public async Task<IActionResult> RemoveMember(int groupId, string username, CancellationToken cancellationToken)
+        public async Task<IActionResult> RemoveMember(int groupId, [FromBody] AddGroupMemberRequest? request, [FromQuery] string? username, CancellationToken cancellationToken)
         {
+            var targetUsername = request?.Username ?? username;
+            if (string.IsNullOrWhiteSpace(targetUsername))
+                return BadRequest("Username is required.");
+
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
             if (string.IsNullOrEmpty(userId))
@@ -80,7 +88,7 @@ namespace Vivcord.Server.Controllers
             if (!Guid.TryParse(userId, out var userIdGuid))
                 return BadRequest("Invalid user id format.");
 
-            var removeMemberResult = await groupChatService.RemoveMemberAsync(userIdGuid, groupId, username, cancellationToken);
+            var removeMemberResult = await groupChatService.RemoveMemberAsync(userIdGuid, groupId, targetUsername, cancellationToken);
 
             return removeMemberResult.Match(
                 success => Ok(),
@@ -89,8 +97,12 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpPost("assign-admin/{groupId}")]
-        public async Task<IActionResult> AssignAdmin(int groupId, string newAdminUsername, CancellationToken cancellationToken)
+        public async Task<IActionResult> AssignAdmin(int groupId, [FromBody] AssignGroupAdminRequest? request, [FromQuery] string? newAdminUsername, CancellationToken cancellationToken)
         {
+            var targetAdmin = request?.NewAdminUsername ?? newAdminUsername;
+            if (string.IsNullOrWhiteSpace(targetAdmin))
+                return BadRequest("New admin username is required.");
+
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
             if (string.IsNullOrEmpty(userId))
@@ -99,7 +111,7 @@ namespace Vivcord.Server.Controllers
             if (!Guid.TryParse(userId, out var userIdGuid))
                 return BadRequest("Invalid user id format.");
 
-            var assignAdminResult = await groupChatService.AssignAdminAsync(userIdGuid, groupId, newAdminUsername, cancellationToken);
+            var assignAdminResult = await groupChatService.AssignAdminAsync(userIdGuid, groupId, targetAdmin, cancellationToken);
 
             return assignAdminResult.Match(
                 success => Ok(),

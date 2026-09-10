@@ -39,7 +39,8 @@ namespace Vivcord.Server.Hubs
                 savedMessage.SasAttachmentUrl,
                 dto.AttachmentType,
                 senderDisplayName,
-                senderUser?.ProfilePictureUrl);
+                senderUser?.ProfilePictureUrl,
+                savedMessage.SentAt);
 
             return savedMessage.Id;
         }

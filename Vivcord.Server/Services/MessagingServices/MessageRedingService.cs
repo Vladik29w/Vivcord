@@ -21,9 +21,15 @@ namespace Vivcord.Server.Services.MessagingServices
                 {
                     m.id,
                     m.Sender,
+                    m.Target,
+                    SenderName = m.SenderUser != null
+                        ? (!string.IsNullOrWhiteSpace(m.SenderUser.DisplayName) ? m.SenderUser.DisplayName : m.SenderUser.UserName)
+                        : null,
+                    SenderAvatarUrl = m.SenderUser != null ? m.SenderUser.ProfilePictureUrl : null,
                     m.Text,
                     m.AttachmentUrl,
                     m.AttachmentType,
+                    m.SentAt
                 })
                 .ToListAsync(cancellationToken);
 
@@ -40,10 +46,13 @@ namespace Vivcord.Server.Services.MessagingServices
                 {
                     Id = m.id,
                     SenderId = m.Sender,
-                    TargetUserId = Guid.Empty,
+                    TargetUserId = m.Target,
                     Text = m.Text,
                     AttachmentUrl = sasReadUrl,
-                    AttachmentType = m.AttachmentType
+                    AttachmentType = m.AttachmentType,
+                    SentAt = m.SentAt,
+                    SenderName = m.SenderName,
+                    SenderAvatarUrl = m.SenderAvatarUrl
                 };
             }).ToList();
         }
@@ -60,6 +69,7 @@ namespace Vivcord.Server.Services.MessagingServices
                     SenderName = m.SenderUser != null
                         ? (!string.IsNullOrWhiteSpace(m.SenderUser.DisplayName) ? m.SenderUser.DisplayName : m.SenderUser.UserName)
                         : null,
+                    SenderAvatarUrl = m.SenderUser != null ? m.SenderUser.ProfilePictureUrl : null,
                     m.GroupId,
                     m.Text,
                     m.AttachmentUrl,
@@ -82,10 +92,12 @@ namespace Vivcord.Server.Services.MessagingServices
                     Id = m.id,
                     SenderId = m.Sender,
                     SenderName = m.SenderName,
+                    SenderAvatarUrl = m.SenderAvatarUrl,
                     GroupId = m.GroupId,
                     Text = m.Text,
                     AttachmentUrl = sasReadUrl,
-                    AttachmentType = m.AttachmentType
+                    AttachmentType = m.AttachmentType,
+                    SentAt = m.SentAt
                 };
             }).ToList();
         }

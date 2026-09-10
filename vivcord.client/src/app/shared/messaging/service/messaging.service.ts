@@ -39,7 +39,8 @@ export abstract class MessagingService {
         attachmentUrl?: string,
         attachmentType?: 'image' | 'video',
         senderName?: string,
-        senderAvatarUrl?: string
+        senderAvatarUrl?: string,
+        sentAt?: string
       ) => {
         this.messageReceived$.next({
           id: messageId,
@@ -49,7 +50,9 @@ export abstract class MessagingService {
           senderAvatarUrl,
           text,
           attachmentUrl,
-          attachmentType
+          attachmentType,
+          createdAt: sentAt ? new Date(sentAt) : new Date(),
+          timestamp: sentAt ? new Date(sentAt) : new Date()
         });
       }
     );

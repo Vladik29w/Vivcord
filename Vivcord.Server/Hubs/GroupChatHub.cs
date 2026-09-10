@@ -34,7 +34,7 @@ namespace Vivcord.Server.Hubs
             await Groups.AddToGroupAsync(Context.ConnectionId, groupId.ToString());
         }
 
-        public async Task<int> SendMessage(GroupMessageDto dto)
+        public async Task<int> SendMessage(SendGroupMessageDto dto)
         {
             var senderId = Context.UserIdentifier!;
             var senderGuid = Guid.Parse(senderId);
@@ -72,7 +72,8 @@ namespace Vivcord.Server.Hubs
                 savedMessage.SasAttachmentUrl,
                 dto.AttachmentType,
                 senderName,
-                senderUser?.ProfilePictureUrl);
+                senderUser?.ProfilePictureUrl,
+                savedMessage.SentAt);
 
             return savedMessage.Id;
         }

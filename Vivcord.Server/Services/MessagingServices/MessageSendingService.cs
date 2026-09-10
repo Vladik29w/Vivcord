@@ -34,7 +34,7 @@ namespace Vivcord.Server.Services.MessagingServices
             dbContext.PrivateMessages.Add(userMessage);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return new MessageSendResult(userMessage.id, ToSasUrl(messageDto.AttachmentUrl));
+            return new MessageSendResult(userMessage.id, ToSasUrl(messageDto.AttachmentUrl), userMessage.SentAt);
         }
 
         public async Task<MessageSendResult> SendGroupMessageAsync(GroupMessageDto messageDto, CancellationToken cancellationToken = default)
@@ -52,7 +52,7 @@ namespace Vivcord.Server.Services.MessagingServices
             dbContext.GroupMessages.Add(userMessage);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return new MessageSendResult(userMessage.id, ToSasUrl(messageDto.AttachmentUrl));
+            return new MessageSendResult(userMessage.id, ToSasUrl(messageDto.AttachmentUrl), userMessage.SentAt);
         }
     }
 }
