@@ -1,9 +1,6 @@
-export interface UserProfileDTO {
-  userId: string;
-  userName: string;
-  displayName: string;
-  profilePictureUrl?: string | null;
-}
+import { UserProfileDTO } from '../../profile/dto/profile.dto';
+
+export type { UserProfileDTO };
 
 export interface GroupChatDTO {
   id: number;

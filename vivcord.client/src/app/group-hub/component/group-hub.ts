@@ -197,7 +197,16 @@ export class GroupHubComponent implements OnInit, OnDestroy {
 
     this.messages.update(msgs => [
       ...msgs,
-      { id: tempId, senderId: myId, text, status: 'sending', attachmentUrl: localPreviewUrl, attachmentType },
+      {
+        id: tempId,
+        senderId: myId,
+        text,
+        status: 'sending',
+        attachmentUrl: localPreviewUrl,
+        attachmentType,
+        timestamp: new Date(),
+        createdAt: new Date(),
+      },
     ]);
 
     this.selectedFile.set(null);

@@ -1,13 +1,9 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { MessagingService } from '../../shared/messaging/service/messaging.service';
+import { UserProfileDTO } from '../../profile/dto/profile.dto';
 
-export interface UserProfileDTO {
-  id: string;
-  userName: string;
-  displayName?: string;
-  profilePictureUrl?: string | null;
-}
+export type { UserProfileDTO };
 
 @Injectable({
   providedIn: 'root',

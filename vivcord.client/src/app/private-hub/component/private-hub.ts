@@ -76,11 +76,12 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
       this.chatService.loadUserProfile(username)
         .pipe(
           tap(profile => {
-            this.targetUserId.set(profile.id);
+            const targetId = profile.id || profile.userId || '';
+            this.targetUserId.set(targetId);
             this.targetDisplayName.set(profile.displayName || profile.userName);
             this.targetProfilePictureUrl.set(profile.profilePictureUrl ?? null);
           }),
-          switchMap(profile => this.chatService.loadChatHistory(profile.id)),
+          switchMap(profile => this.chatService.loadChatHistory(profile.id || profile.userId || '')),
           takeUntilDestroyed(this.destroyRef)
         )
         .subscribe({
@@ -177,6 +178,8 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
         status: 'sending',
         attachmentUrl: localPreviewUrl,
         attachmentType,
+        timestamp: new Date(),
+        createdAt: new Date(),
       },
     ]);
 

@@ -4,7 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AccountService } from '@account/service/account.service';
-import { RegisterDTO } from '@account/dto/account-dto';
+import { RegisterDTO } from '@account/dto/account.dto';
 
 export type PasswordStrengthLevel = 'empty' | 'weak' | 'fair' | 'strong' | 'very-strong';
 

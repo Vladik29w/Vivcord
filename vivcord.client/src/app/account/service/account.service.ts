@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, catchError, of } from 'rxjs';
-import { UserDTO, RegisterDTO, LoginDTO } from '../dto/account-dto';
+import { UserDTO, RegisterDTO, LoginDTO } from '../dto/account.dto';
 import { environment } from '@environments/environment';
 
 @Injectable({

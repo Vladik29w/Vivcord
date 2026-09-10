@@ -12,6 +12,10 @@ export class GroupHubService extends MessagingService {
     super.connectToHub('/hubs/group');
   }
 
+  protected override getHistoryUrl(groupId: string | number): string {
+    return `${environment.apiUrl}/Messaging/group-history/${groupId}`;
+  }
+
   public async joinGroup(groupId: number): Promise<void> {
     return this.invokeHub<void>('JoinGroup', groupId);
   }
@@ -36,8 +40,6 @@ export class GroupHubService extends MessagingService {
   }
 
   public loadGroupHistory(groupId: number): Observable<MessageDTO[]> {
-    return this._http.get<MessageDTO[]>(
-      `${environment.apiUrl}/Messaging/group-history/${groupId}`
-    );
+    return this.loadChatHistory(groupId);
   }
 }

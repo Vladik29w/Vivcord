@@ -9,6 +9,7 @@ export interface MessageDTO {
   attachmentType?: 'image' | 'video';
   timestamp?: string | Date;
   createdAt?: string | Date;
+  sentAt?: string | Date;
 }
 
 export type MessageStatus = 'sending' | 'sent' | 'error';

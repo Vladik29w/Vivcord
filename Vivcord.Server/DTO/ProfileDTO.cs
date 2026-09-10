@@ -21,5 +21,6 @@ namespace Vivcord.Server.DTO
         public string? DisplayName { get; init; }
         public string? ProfilePictureUrl { get; init; }
         public string UserName => Name;
+        public string UserId => Id;
     }
 }

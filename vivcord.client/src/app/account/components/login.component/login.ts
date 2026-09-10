@@ -2,7 +2,7 @@ import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/cor
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AccountService } from '@account/service/account.service';
-import { LoginDTO } from '@account/dto/account-dto';
+import { LoginDTO } from '@account/dto/account.dto';
 
 @Component({
   selector: 'app-login',

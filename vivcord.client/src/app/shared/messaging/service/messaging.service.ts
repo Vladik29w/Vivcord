@@ -1,15 +1,11 @@
 import { inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Subject, Observable, firstValueFrom } from 'rxjs';
+import { Subject, Observable, firstValueFrom, map } from 'rxjs';
 import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr';
 import { AccountService } from '@account/service/account.service';
 import { MessageDTO } from '../dto/message.dto';
 import { environment } from '@environments/environment';
-
-interface UploadTokenResponse {
-  uploadUrl: string;
-  blobName: string;
-}
+import { UploadTokenResponse } from '../../../profile/dto/profile.dto';
 
 export abstract class MessagingService {
   protected readonly _http = inject(HttpClient);
@@ -135,9 +131,18 @@ export abstract class MessagingService {
     return this.sendMessage(targetId, text, tokenResponse.blobName, attachmentType);
   }
 
-  public loadChatHistory(targetId: string): Observable<MessageDTO[]> {
-    return this._http.get<MessageDTO[]>(
-      `${environment.apiUrl}/Messaging/history/${targetId}`
+  protected getHistoryUrl(targetId: string | number): string {
+    return `${environment.apiUrl}/Messaging/history/${targetId}`;
+  }
+
+  public loadChatHistory(targetId: string | number): Observable<MessageDTO[]> {
+    return this._http.get<MessageDTO[]>(this.getHistoryUrl(targetId)).pipe(
+      map(messages => messages.map(m => ({
+        ...m,
+        status: 'sent' as const,
+        timestamp: m.sentAt ? new Date(m.sentAt) : (m.timestamp ? new Date(m.timestamp) : new Date()),
+        createdAt: m.sentAt ? new Date(m.sentAt) : (m.createdAt ? new Date(m.createdAt) : new Date()),
+      })))
     );
   }
 
