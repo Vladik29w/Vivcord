@@ -9,10 +9,12 @@ import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.ser
 import { LiveKitService } from '../../voice-chat/service/live-kit.service';
 import { ToastService } from '../../shared/toast/service/toast.service';
 import { environment } from '../../../environments/environment';
+import { KlipyComponent } from '../../shared/messaging/klipy/component/klipy';
 
 @Component({
   selector: 'app-private-hub',
   standalone: true,
+  imports: [KlipyComponent],
   templateUrl: './private-hub.html',
   styleUrl: './private-hub.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -48,6 +50,7 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
   public readonly messages = signal<MessageDTO[]>([]);
   public readonly selectedFile = signal<File | null>(null);
   public readonly isUploading = signal(false);
+  public readonly showGifPicker = signal(false);
 
   public readonly myProfilePictureUrl = computed(() => this.accountService.currentUser()?.profilePictureUrl ?? null);
 
@@ -154,6 +157,48 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
 
   public clearFile(): void {
     this.selectedFile.set(null);
+  }
+
+  public toggleGifPicker(): void {
+    this.showGifPicker.update(v => !v);
+  }
+
+  public closeGifPicker(): void {
+    this.showGifPicker.set(false);
+  }
+
+  public async sendGif(gifUrl: string): Promise<void> {
+    const targetId = this.targetUserId();
+    const myId = this.senderId();
+    if (!targetId || !myId) return;
+
+    const tempId = crypto.randomUUID();
+    this.messages.update(msgs => [
+      ...msgs,
+      {
+        id: tempId,
+        senderId: myId,
+        text: '',
+        status: 'sending',
+        attachmentUrl: gifUrl,
+        attachmentType: 'image' as const,
+        timestamp: new Date(),
+        createdAt: new Date(),
+      },
+    ]);
+
+    this.showGifPicker.set(false);
+
+    try {
+      const realId = await this.chatService.sendMessage(targetId, '', gifUrl, 'image');
+      this.messages.update(msgs =>
+        msgs.map(m => (m.id === tempId ? { ...m, id: realId, status: 'sent' } : m))
+      );
+    } catch {
+      this.messages.update(msgs =>
+        msgs.map(m => (m.id === tempId ? { ...m, status: 'error' } : m))
+      );
+    }
   }
 
   public async send(text: string): Promise<void> {

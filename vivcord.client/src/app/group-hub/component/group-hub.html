@@ -147,6 +147,25 @@
         </svg>
       </button>
 
+      <!-- GIF Button -->
+      <div class="gif-btn-wrapper">
+        <button
+          type="button"
+          class="btn-gif"
+          [class.active]="showGifPicker()"
+          (click)="toggleGifPicker(); $event.stopPropagation()"
+          [disabled]="isUploading()"
+          title="Send a GIF">
+          GIF
+        </button>
+        @if (showGifPicker()) {
+          <app-klipy
+            (gifSelected)="sendGif($event)"
+            (closed)="closeGifPicker()">
+          </app-klipy>
+        }
+      </div>
+
       <div class="message-input-wrapper">
         <input 
           #msgInput 

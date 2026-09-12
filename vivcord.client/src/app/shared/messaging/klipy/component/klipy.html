@@ -1,0 +1,80 @@
+<div class="klipy-widget" (click)="$event.stopPropagation()">
+
+  <!-- Header -->
+  <div class="klipy-header">
+    <div class="klipy-logo">
+      <span class="klipy-logo-text">GIF</span>
+    </div>
+    <div class="klipy-search-wrapper">
+      <svg class="klipy-search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none"
+           stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input
+        class="klipy-search-input"
+        type="text"
+        placeholder="Search GIFs..."
+        [value]="searchQuery()"
+        (input)="onSearch($any($event.target).value)"
+        autofocus
+      />
+    </div>
+    <button class="klipy-close-btn" type="button" (click)="close()" title="Close">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+           stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Body -->
+  <div class="klipy-body">
+
+    @if (isLoading()) {
+      <div class="klipy-state">
+        <div class="klipy-spinner"></div>
+        <span>Loading GIFs...</span>
+      </div>
+    } @else if (error()) {
+      <div class="klipy-state klipy-error">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none"
+             stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>{{ error() }}</span>
+      </div>
+    } @else if (gifs().length === 0) {
+      <div class="klipy-state">
+        <span class="klipy-empty-icon">🔍</span>
+        <span>No GIFs found</span>
+      </div>
+    } @else {
+      <div class="klipy-grid">
+        @for (gif of gifs(); track gif.url) {
+          <button
+            type="button"
+            class="klipy-gif-item"
+            (click)="selectGif(gif.url)"
+            [title]="gif.title">
+            <img
+              [src]="gif.preview"
+              [alt]="gif.title || 'GIF'"
+              loading="lazy"
+            />
+          </button>
+        }
+      </div>
+    }
+
+  </div>
+
+  <!-- Footer branding -->
+  <div class="klipy-footer">
+    <span>Powered by <strong>Klipy</strong></span>
+  </div>
+
+</div>
