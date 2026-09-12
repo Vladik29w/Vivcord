@@ -7,6 +7,7 @@ using System.Text;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.Extensions;
 using Vivcord.Server.Hubs;
+using Vivcord.Server.Infastructure.Api;
 using Vivcord.Server.Infastructure.Jwt;
 using Vivcord.Server.Services;
 using Vivcord.Server.Services.MessagingServices;
@@ -25,6 +26,7 @@ builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddSingleton<IVoiceChatService, VoiceChatService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IGroupChatService, GroupChatService>();
+builder.Services.AddHttpClient<IKlipyService, KlipyService>();
 
 builder.Services.AddVivcordAzureBlob();
 
