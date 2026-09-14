@@ -3,6 +3,7 @@ export interface MessageDTO {
   senderId: string;
   senderName?: string;
   senderAvatarUrl?: string | null;
+  groupId?: number;
   text: string;
   status: MessageStatus;
   attachmentUrl?: string;

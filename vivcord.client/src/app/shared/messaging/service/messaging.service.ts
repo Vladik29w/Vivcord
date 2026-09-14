@@ -36,7 +36,8 @@ export abstract class MessagingService {
         attachmentType?: 'image' | 'video',
         senderName?: string,
         senderAvatarUrl?: string,
-        sentAt?: string
+        sentAt?: string,
+        groupId?: number
       ) => {
         this.messageReceived$.next({
           id: messageId,
@@ -44,6 +45,7 @@ export abstract class MessagingService {
           senderId,
           senderName,
           senderAvatarUrl,
+          groupId,
           text,
           attachmentUrl,
           attachmentType,

@@ -73,7 +73,8 @@ namespace Vivcord.Server.Hubs
                 dto.AttachmentType,
                 senderName,
                 senderUser?.ProfilePictureUrl,
-                savedMessage.SentAt);
+                savedMessage.SentAt,
+                dto.GroupId);
 
             return savedMessage.Id;
         }

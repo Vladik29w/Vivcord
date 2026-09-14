@@ -10,6 +10,7 @@ import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.ser
 import { LiveKitService } from '../../voice-chat/service/live-kit.service';
 import { environment } from '../../../environments/environment';
 import { KlipyComponent } from '../../shared/messaging/klipy/component/klipy';
+import { ToastService } from '../../shared/toast/service/toast.service';
 
 @Component({
   selector: 'app-group-hub',
@@ -29,6 +30,7 @@ export class GroupHubComponent implements OnInit, OnDestroy {
   private readonly groupService = inject(GroupHubService);
   private readonly groupManagement = inject(GroupManagementService);
   private readonly accountService = inject(AccountService);
+  private readonly toastService = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly voiceCallApi = inject(VoiceCallApiService);
   public readonly livekitService = inject(LiveKitService);
@@ -403,12 +405,29 @@ export class GroupHubComponent implements OnInit, OnDestroy {
         // Skip echo of own messages — they are already added optimistically in send()
         if (msg.senderId === this.senderId()) return;
 
-        const fullMsg: MessageDTO = {
-          ...msg,
-          id: msg.id ?? crypto.randomUUID(),
-          status: 'sent',
-        };
-        this.messages.update(m => [...m, fullMsg]);
+        const currentGroupId = this.groupId();
+        if (currentGroupId && msg.groupId === currentGroupId) {
+          const fullMsg: MessageDTO = {
+            ...msg,
+            id: msg.id ?? crypto.randomUUID(),
+            status: 'sent',
+          };
+          this.messages.update(m => [...m, fullMsg]);
+        } else {
+          const senderName = msg.senderName || 'Someone';
+          this.toastService.show({
+            title: senderName,
+            message: msg.text || (msg.attachmentType ? `Sent a ${msg.attachmentType}` : 'Sent an attachment'),
+            avatarUrl: msg.senderAvatarUrl,
+            avatarInitials: senderName.substring(0, 2).toUpperCase(),
+            type: 'message',
+            onClick: () => {
+              if (msg.groupId) {
+                this.router.navigate(['/group', msg.groupId]);
+              }
+            },
+          });
+        }
       });
   }
 
