@@ -1,7 +1,6 @@
+using ErrorOr;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using Vivcord.Server.Controllers.Main;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Services;
@@ -15,39 +14,21 @@ namespace Vivcord.Server.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> CreateGroup(CreateGroupChatDTO dto, CancellationToken cancellationToken)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+            if (CurrentUserId is not { } userId)
+                return Unauthorized();
 
-            if (string.IsNullOrEmpty(userId))
-                return BadRequest("User id claim not found.");
-
-            if (!Guid.TryParse(userId, out var userIdGuid))
-                return BadRequest("Invalid user id format.");
-
-            var createResult = await groupChatService.CreateGroupAsync(userIdGuid, dto, cancellationToken);
-
-            return createResult.Match(
-                groupChat => Ok(groupChat),
-                errors => Problem(errors)
-            );
+            var result = await groupChatService.CreateGroupAsync(userId, dto, cancellationToken);
+            return result.Match(Ok, Problem);
         }
 
         [HttpDelete("delete/{groupId}")]
         public async Task<IActionResult> DeleteGroup(int groupId, CancellationToken cancellationToken)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+            if (CurrentUserId is not { } userId)
+                return Unauthorized();
 
-            if (string.IsNullOrEmpty(userId))
-                return BadRequest("User id claim not found.");
-
-            if (!Guid.TryParse(userId, out var userIdGuid))
-                return BadRequest("Invalid user id format.");
-
-            var deleteResult = await groupChatService.DeleteGroupAsync(userIdGuid, groupId, cancellationToken);
-
-            return deleteResult.Match(
-                success => Ok(),
-                errors => Problem(errors)
-            );
+            var result = await groupChatService.DeleteGroupAsync(userId, groupId, cancellationToken);
+            return result.Match(_ => Ok(), Problem);
         }
 
         [HttpPost("add-member/{groupId}")]
@@ -55,22 +36,13 @@ namespace Vivcord.Server.Controllers
         {
             var targetUsername = request?.Username ?? username;
             if (string.IsNullOrWhiteSpace(targetUsername))
-                return BadRequest("Username is required.");
+                return Problem(Error.Validation("UsernameRequired", "Username is required."));
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+            if (CurrentUserId is not { } userId)
+                return Unauthorized();
 
-            if (string.IsNullOrEmpty(userId))
-                return BadRequest("User id claim not found.");
-
-            if (!Guid.TryParse(userId, out var userIdGuid))
-                return BadRequest("Invalid user id format.");
-
-            var addMemberResult = await groupChatService.AddMemberAsync(userIdGuid, groupId, targetUsername, cancellationToken);
-
-            return addMemberResult.Match(
-                success => Ok(),
-                errors => Problem(errors)
-            );
+            var result = await groupChatService.AddMemberAsync(userId, groupId, targetUsername, cancellationToken);
+            return result.Match(_ => Ok(), Problem);
         }
 
         [HttpDelete("remove-member/{groupId}")]
@@ -78,22 +50,13 @@ namespace Vivcord.Server.Controllers
         {
             var targetUsername = request?.Username ?? username;
             if (string.IsNullOrWhiteSpace(targetUsername))
-                return BadRequest("Username is required.");
+                return Problem(Error.Validation("UsernameRequired", "Username is required."));
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+            if (CurrentUserId is not { } userId)
+                return Unauthorized();
 
-            if (string.IsNullOrEmpty(userId))
-                return BadRequest("User id claim not found.");
-
-            if (!Guid.TryParse(userId, out var userIdGuid))
-                return BadRequest("Invalid user id format.");
-
-            var removeMemberResult = await groupChatService.RemoveMemberAsync(userIdGuid, groupId, targetUsername, cancellationToken);
-
-            return removeMemberResult.Match(
-                success => Ok(),
-                errors => Problem(errors)
-            );
+            var result = await groupChatService.RemoveMemberAsync(userId, groupId, targetUsername, cancellationToken);
+            return result.Match(_ => Ok(), Problem);
         }
 
         [HttpPost("assign-admin/{groupId}")]
@@ -101,52 +64,30 @@ namespace Vivcord.Server.Controllers
         {
             var targetAdmin = request?.NewAdminUsername ?? newAdminUsername;
             if (string.IsNullOrWhiteSpace(targetAdmin))
-                return BadRequest("New admin username is required.");
+                return Problem(Error.Validation("UsernameRequired", "New admin username is required."));
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+            if (CurrentUserId is not { } userId)
+                return Unauthorized();
 
-            if (string.IsNullOrEmpty(userId))
-                return BadRequest("User id claim not found.");
-
-            if (!Guid.TryParse(userId, out var userIdGuid))
-                return BadRequest("Invalid user id format.");
-
-            var assignAdminResult = await groupChatService.AssignAdminAsync(userIdGuid, groupId, targetAdmin, cancellationToken);
-
-            return assignAdminResult.Match(
-                success => Ok(),
-                errors => Problem(errors)
-            );
+            var result = await groupChatService.AssignAdminAsync(userId, groupId, targetAdmin, cancellationToken);
+            return result.Match(_ => Ok(), Problem);
         }
 
         [HttpGet("get/{groupId}")]
         public async Task<IActionResult> GetGroup(int groupId, CancellationToken cancellationToken)
         {
-            var getResult = await groupChatService.GetGroupAsync(groupId, cancellationToken);
-
-            return getResult.Match(
-                groupChat => Ok(groupChat),
-                errors => Problem(errors)
-            );
+            var result = await groupChatService.GetGroupAsync(groupId, cancellationToken);
+            return result.Match(Ok, Problem);
         }
 
         [HttpGet("my-groups")]
         public async Task<IActionResult> GetMyGroups(CancellationToken cancellationToken)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+            if (CurrentUserId is not { } userId)
+                return Unauthorized();
 
-            if (string.IsNullOrEmpty(userId))
-                return BadRequest("User id claim not found.");
-
-            if (!Guid.TryParse(userId, out var userIdGuid))
-                return BadRequest("Invalid user id format.");
-
-            var groupsResult = await groupChatService.GetUserGroupsAsync(userIdGuid, cancellationToken);
-
-            return groupsResult.Match(
-                groups => Ok(groups),
-                errors => Problem(errors)
-            );
+            var result = await groupChatService.GetUserGroupsAsync(userId, cancellationToken);
+            return result.Match(Ok, Problem);
         }
     }
 }

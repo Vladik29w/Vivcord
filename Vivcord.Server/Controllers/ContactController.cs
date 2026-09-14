@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc;
 using Vivcord.Server.Controllers.Main;
 using Vivcord.Server.Services;
 
@@ -12,9 +11,8 @@ namespace Vivcord.Server.Controllers
         [HttpGet("find/{username}")]
         public async Task<IActionResult> GetProfileByUsername(string username)
         {
-            var res = await messageService.GetProfileByUsername(username);
-            if (res == null) return NotFound("User not found");
-            return Ok(res);
+            var result = await messageService.GetProfileByUsername(username);
+            return result.Match(Ok, Problem);
         }
     }
 }

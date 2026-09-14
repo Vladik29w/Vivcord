@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using Vivcord.Server.Controllers.Main;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Services;
@@ -14,8 +13,7 @@ namespace Vivcord.Server.Controllers
         [HttpPost("upload-token")]
         public IActionResult GetUploadToken([FromBody] UploadTokenRequest request)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId is null)
+            if (CurrentUserId is null)
                 return Unauthorized();
 
             var result = blobStorageService.GenerateUploadSasToken(BlobContainers.ChatMedia, request.FileName, request.ContentType);

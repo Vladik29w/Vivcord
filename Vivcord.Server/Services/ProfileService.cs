@@ -2,16 +2,18 @@ using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Infastructure.Jwt;
+
 namespace Vivcord.Server.Services
 {
     public interface IProfileService
     {
         public Task<ErrorOr<UserProfileDTO>> GetUserProfile(Guid userId, CancellationToken ct = default);
-        public Task<ErrorOr<Success>> ChangeUserDisplayName(Guid userId, string displayName, CancellationToken ct = default);
+        public Task<ErrorOr<string>> ChangeUserDisplayName(Guid userId, string displayName, CancellationToken ct = default);
         public ErrorOr<UploadTokenResponse> GetProfilePictureSasToken(string fileName, string contentType);
         public Task<ErrorOr<Success>> UpdateProfilePictureUrl(Guid userId, string blobName, CancellationToken ct = default);
     }
-    public class ProfileService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IProfileService
+    public class ProfileService(MainDbContext dbContext, IBlobStorageService blobStorageService, ITokenService tokenService) : IProfileService
     {
         public async Task<ErrorOr<UserProfileDTO>> GetUserProfile(Guid userId, CancellationToken ct = default)
         {
@@ -26,14 +28,17 @@ namespace Vivcord.Server.Services
             return user;
         }
 
-        public async Task<ErrorOr<Success>> ChangeUserDisplayName(Guid userId, string displayName, CancellationToken ct = default)
+        public async Task<ErrorOr<string>> ChangeUserDisplayName(Guid userId, string displayName, CancellationToken ct = default)
         { 
-            int res = await dbContext.Users.Where(u => u.Id == userId).ExecuteUpdateAsync(u => u.SetProperty(u => u.DisplayName, displayName), ct);
-            if (res == 0)
+            var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+            if (user is null)
                 return Error.NotFound("UserNotFound", "User not found.");
 
-            return Result.Success;
+            user.DisplayName = displayName;
+            await dbContext.SaveChangesAsync(ct);
 
+            var token = await tokenService.GetTokenAsync(user);
+            return token;
         }
 
         public ErrorOr<UploadTokenResponse> GetProfilePictureSasToken(string fileName, string contentType)

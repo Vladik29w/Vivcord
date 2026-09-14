@@ -1,4 +1,6 @@
-﻿using ErrorOr;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
@@ -7,6 +9,29 @@ namespace Vivcord.Server.Controllers.Main
     [ApiController]
     public class ApiMainController : ControllerBase
     {
+        protected Guid? CurrentUserId
+        {
+            get
+            {
+                var id = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                         ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+                return Guid.TryParse(id, out var guid) ? guid : null;
+            }
+        }
+
+        protected string? CurrentUserDisplayName
+        {
+            get
+            {
+                var displayName = User.FindFirstValue("displayName");
+                if (!string.IsNullOrWhiteSpace(displayName))
+                    return displayName;
+
+                return User.FindFirstValue(ClaimTypes.Name)
+                       ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName);
+            }
+        }
+
         protected IActionResult Problem(List<Error> errors)
         {
             if (errors.Count == 0)
@@ -20,7 +45,7 @@ namespace Vivcord.Server.Controllers.Main
             return Problem(firstError);
         }
 
-        private IActionResult Problem(Error error)
+        protected IActionResult Problem(Error error)
         {
             var statusCode = error.Type switch
             {

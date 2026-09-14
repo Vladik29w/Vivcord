@@ -14,6 +14,7 @@ namespace Vivcord.Server.Services
         Task<ErrorOr<UserTokensDTO>> UserLogin(LoginDTO login, CancellationToken ct = default);
         Task<ErrorOr<UserTokensDTO>> RefreshUserToken(string token, CancellationToken ct = default);
         Task<ErrorOr<Success>> UserLogout(string token, CancellationToken ct = default);
+        Task<ErrorOr<UserDTO>> GetActiveUser(Guid userId, CancellationToken ct = default);
     }
     public class AccountService(UserManager<AppUser> manager, ITokenService tokenService, MainDbContext dbContext, TimeProvider timeProvider) : IAccountService
     {
@@ -116,6 +117,24 @@ namespace Vivcord.Server.Services
             await dbContext.RefreshTokens.AddAsync(refToken, ct);
             await dbContext.SaveChangesAsync(ct);
             return refString;
+        }
+
+        public async Task<ErrorOr<UserDTO>> GetActiveUser(Guid userId, CancellationToken ct = default)
+        {
+            var user = await manager.FindByIdAsync(userId.ToString());
+            if (user == null)
+                return Error.NotFound("UserNotFound", "User not found.");
+
+            var roles = await manager.GetRolesAsync(user);
+
+            return new UserDTO
+            {
+                Id = user.Id.ToString(),
+                Email = user.Email ?? string.Empty,
+                DisplayName = user.DisplayName,
+                ProfilePictureUrl = user.ProfilePictureUrl,
+                Roles = roles.ToList()
+            };
         }
     }
 }

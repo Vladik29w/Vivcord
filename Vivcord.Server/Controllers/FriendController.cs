@@ -1,7 +1,6 @@
+using ErrorOr;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using Vivcord.Server.Controllers.Main;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Services;
@@ -15,20 +14,11 @@ namespace Vivcord.Server.Controllers
         [HttpGet("list")]
         public async Task<IActionResult> GetFriendList(CancellationToken cancellationToken)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+            if (CurrentUserId is not { } userId)
+                return Unauthorized();
 
-            if (string.IsNullOrEmpty(userId))
-                return BadRequest("User id claim not found.");
-
-            if (!Guid.TryParse(userId, out var userIdGuid))
-                return BadRequest("Invalid user id format.");
-
-            var friendListResult = await friendService.GetFriendList(userIdGuid, cancellationToken);
-
-            return friendListResult.Match(
-                friendList => Ok(friendList),
-                errors => Problem(errors)
-            );
+            var result = await friendService.GetFriendList(userId, cancellationToken);
+            return result.Match(Ok, Problem);
         }
 
         [HttpPost("add")]
@@ -36,22 +26,13 @@ namespace Vivcord.Server.Controllers
         {
             var targetUsername = request?.Username ?? userNameToAdd;
             if (string.IsNullOrWhiteSpace(targetUsername))
-                return BadRequest("Username is required.");
+                return Problem(Error.Validation("UsernameRequired", "Username is required."));
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+            if (CurrentUserId is not { } userId)
+                return Unauthorized();
 
-            if (string.IsNullOrEmpty(userId))
-                return BadRequest("User id claim not found.");
-
-            if (!Guid.TryParse(userId, out var userIdGuid))
-                return BadRequest("Invalid user id format.");
-
-            var addResult = await friendService.AddToFriendList(userIdGuid, targetUsername, cancellationToken);
-
-            return addResult.Match(
-                friendDto => Ok(friendDto),
-                errors => Problem(errors)
-            );
+            var result = await friendService.AddToFriendList(userId, targetUsername, cancellationToken);
+            return result.Match(Ok, Problem);
         }
 
         [HttpDelete("remove")]
@@ -59,22 +40,13 @@ namespace Vivcord.Server.Controllers
         {
             var targetUsername = request?.Username ?? userNameToRemove;
             if (string.IsNullOrWhiteSpace(targetUsername))
-                return BadRequest("Username is required.");
+                return Problem(Error.Validation("UsernameRequired", "Username is required."));
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
+            if (CurrentUserId is not { } userId)
+                return Unauthorized();
 
-            if (string.IsNullOrEmpty(userId))
-                return BadRequest("User id claim not found.");
-
-            if (!Guid.TryParse(userId, out var userIdGuid))
-                return BadRequest("Invalid user id format.");
-
-            var removeResult = await friendService.RemoveFromFriendList(userIdGuid, targetUsername, cancellationToken);
-
-            return removeResult.Match(
-                success => Ok(),
-                errors => Problem(errors)
-            );
+            var result = await friendService.RemoveFromFriendList(userId, targetUsername, cancellationToken);
+            return result.Match(_ => Ok(), Problem);
         }
     }
 }
