@@ -29,7 +29,10 @@ namespace Vivcord.Server.Infastructure.Jwt
             var roles = await userManager.GetRolesAsync(user);
             claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
-            var secretKey = config["JwtSetting:Key"] ?? throw new InvalidOperationException("JWT Secret Key is not configured.");
+            string secretKey = config["JwtSetting:Key"] ?? throw new InvalidOperationException("JWT Secret Key is not configured.");
+
+            string issuer = config["JwtSetting:VivcordServer"] ?? throw new InvalidOperationException("JWT Issuer is not configured.");
+            string audience = config["JwtSetting:VivcordClient"] ?? throw new InvalidOperationException("JWT Audience is not configured.");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -39,8 +42,8 @@ namespace Vivcord.Server.Infastructure.Jwt
                 Subject = new ClaimsIdentity(claims),
                 Expires = timeProvider.GetUtcNow().AddMinutes(10).UtcDateTime,
                 SigningCredentials = credentials,
-                Issuer = config["JwtSetting:VivcordServer"],
-                Audience = config["JwtSetting:VivcordClient"]
+                Issuer = issuer,
+                Audience = audience
             };
 
             var Handler = new JwtSecurityTokenHandler();

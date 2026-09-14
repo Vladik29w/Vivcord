@@ -1,20 +1,22 @@
-using Microsoft.AspNetCore.Mvc;
+using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
-using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Services
 {
     public interface IContactService
     {
-        Task<FindUserDTO?> GetProfileByUsername(string username);
+        Task<ErrorOr<FindUserDTO>> GetProfileByUsername(string username);
     }
     public class ContactService(MainDbContext dbContext) : IContactService
     {
-        public async Task<FindUserDTO?> GetProfileByUsername(string username)
+        public async Task<ErrorOr<FindUserDTO>> GetProfileByUsername(string username)
         {
-            return await dbContext.Users
+            if (string.IsNullOrWhiteSpace(username))
+                return Error.Validation("InvalidUsername", "Username is required");
+
+            var res = await dbContext.Users
                 .Where(u => u.UserName == username)
                 .Select(u => new FindUserDTO
                 {
@@ -24,6 +26,10 @@ namespace Vivcord.Server.Services
                     ProfilePictureUrl = u.ProfilePictureUrl
                 })
                 .FirstOrDefaultAsync();
+            if (res == null)
+                return Error.NotFound(description: "User not found");
+
+            return res;
         }
     }
 }

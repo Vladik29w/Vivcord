@@ -114,6 +114,9 @@ namespace Vivcord.Server.Services
             if (group.adminId != userId)
                 return Error.Unauthorized(description: "Only group admin can remove members");
 
+            if (userId == group.adminId && username == (await dbContext.Users.FindAsync(userId, cancellationToken))?.UserName)
+                return Error.Conflict(description: "Admin cannot remove themselves from the group");
+
             var user = await dbContext.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.UserName == username, cancellationToken);
@@ -166,7 +169,6 @@ namespace Vivcord.Server.Services
         public async Task<ErrorOr<GroupChatDTO>> GetGroupAsync(int groupId, CancellationToken cancellationToken = default)
         {
             var groupDto = await dbContext.GroupChats
-                .AsNoTracking()
                 .Where(g => g.id == groupId)
                 .Select(g => new GroupChatDTO
                 {
@@ -203,7 +205,6 @@ namespace Vivcord.Server.Services
         public async Task<ErrorOr<IReadOnlyList<GroupChatDTO>>> GetUserGroupsAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             var groups = await dbContext.GroupChats
-                .AsNoTracking()
                 .Where(g => g.Members.Any(m => m.UserId == userId))
                 .Select(g => new GroupChatDTO
                 {

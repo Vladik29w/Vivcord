@@ -1,4 +1,5 @@
 ﻿using ErrorOr;
+using System.Net;
 using System.Text.Json;
 using Vivcord.Server.DTO;
 
@@ -16,7 +17,7 @@ namespace Vivcord.Server.Infastructure.Api
 
         public async Task<ErrorOr<PagedResultDto<GifDTO>>> GetTrendingGifs()
         {
-            var response = await httpClient.GetAsync($"{url}/{_apiKey}/gifs/trending?page={1}&per_page={20}");
+            var response = await httpClient.GetAsync($"{url}/{_apiKey}/gifs/trending?page={1}&per_page={20}");//TOOD: add pagination with lazy loading in angular
 
             if (!response.IsSuccessStatusCode)
                 return Error.Failure("Failed to fetch trending gifs from Klipy API.");
@@ -28,16 +29,19 @@ namespace Vivcord.Server.Infastructure.Api
 
             return MapKlipyDataToGifDto(json);
         }
-
         public async Task<ErrorOr<PagedResultDto<GifDTO>>> SearchGifs(string query)
         {
-            var response = await httpClient.GetAsync($"{url}/{_apiKey}/gifs/search?page={1}&per_page={20}&q={query.Trim()}");
+            query = Uri.EscapeDataString(query);
+            var response = await httpClient.GetAsync($"{url}/{_apiKey}/gifs/search?page={1}&per_page={20}&q={query}");
 
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return Error.NotFound("Not found any GIFS for " + query);
+            if (response.StatusCode == HttpStatusCode.InternalServerError)
+                return Error.Failure("Klipy API internal error");
             if (!response.IsSuccessStatusCode)
-                return Error.NotFound("Not found any GIFS for " + query.Trim());
+                return Error.Unexpected("Failed to fetch gifs.");
 
-            var jsonString = await response.Content.ReadAsStringAsync();
-            var json = JsonSerializer.Deserialize<KlipyApiResponse>(jsonString);
+            var json = await response.Content.ReadFromJsonAsync<KlipyApiResponse>();
 
             if (json == null)
                 return Error.Failure("Failed to deserialize Klipy API response.");
