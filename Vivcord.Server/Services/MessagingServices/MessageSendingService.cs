@@ -12,10 +12,14 @@ namespace Vivcord.Server.Services.MessagingServices
 
     public class MessageSendingService(MainDbContext dbContext, TimeProvider timeProvider, IBlobStorageService blobStorageService) : IMessageSendingService
     {
-        private string? ToSasUrl(string? blobName)
+        private string? ToSasUrl(string? attachmentUrl)
         {
-            if (blobName is null) return null;
-            var result = blobStorageService.GenerateSasReadUrl(BlobContainers.ChatMedia, blobName);
+            if (attachmentUrl is null) return null;
+            //for gifs
+            if (attachmentUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                attachmentUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return attachmentUrl;
+            var result = blobStorageService.GenerateSasReadUrl(BlobContainers.ChatMedia, attachmentUrl);
             return result.IsError ? null : result.Value;
         }
 

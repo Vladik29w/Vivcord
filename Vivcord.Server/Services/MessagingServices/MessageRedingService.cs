@@ -11,6 +11,16 @@ namespace Vivcord.Server.Services.MessagingServices
     }
     public class MessageRedingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessagingService
     {
+        private string? ResolveAttachmentUrl(string? url)
+        {
+            if (url is null) return null;
+            //for gifs
+            if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return url;
+            var result = blobStorageService.GenerateSasReadUrl(BlobContainers.ChatMedia, url);
+            return result.IsError ? null : result.Value;
+        }
         public async Task<IReadOnlyList<PrivateMessageDto>> GetPrivateChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default)
         {
             var messages = await dbContext.PrivateMessages
@@ -35,20 +45,13 @@ namespace Vivcord.Server.Services.MessagingServices
 
             return messages.Select(m =>
             {
-                string? sasReadUrl = null;
-                if (m.AttachmentUrl is not null)
-                {
-                    var result = blobStorageService.GenerateSasReadUrl(BlobContainers.ChatMedia, m.AttachmentUrl);
-                    sasReadUrl = result.IsError ? null : result.Value;
-                }
-
                 return new PrivateMessageDto
                 {
                     Id = m.id,
                     SenderId = m.Sender,
                     TargetUserId = m.Target,
                     Text = m.Text,
-                    AttachmentUrl = sasReadUrl,
+                    AttachmentUrl = ResolveAttachmentUrl(m.AttachmentUrl),
                     AttachmentType = m.AttachmentType,
                     SentAt = m.SentAt,
                     SenderName = m.SenderName,
@@ -80,13 +83,6 @@ namespace Vivcord.Server.Services.MessagingServices
 
             return messages.Select(m =>
             {
-                string? sasReadUrl = null;
-                if (m.AttachmentUrl is not null)
-                {
-                    var result = blobStorageService.GenerateSasReadUrl(BlobContainers.ChatMedia, m.AttachmentUrl);
-                    sasReadUrl = result.IsError ? null : result.Value;
-                }
-
                 return new GroupMessageDto
                 {
                     Id = m.id,
@@ -95,7 +91,7 @@ namespace Vivcord.Server.Services.MessagingServices
                     SenderAvatarUrl = m.SenderAvatarUrl,
                     GroupId = m.GroupId,
                     Text = m.Text,
-                    AttachmentUrl = sasReadUrl,
+                    AttachmentUrl = ResolveAttachmentUrl(m.AttachmentUrl),
                     AttachmentType = m.AttachmentType,
                     SentAt = m.SentAt
                 };
