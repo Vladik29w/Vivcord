@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using System.Data;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -14,8 +14,26 @@ namespace Vivcord.Server.Infastructure.Jwt
         Task<string> GetTokenAsync(AppUser user);
         string GetRefreshToken();
     }
-    public class TokenService(IConfiguration config, UserManager<AppUser> userManager, TimeProvider timeProvider) : ITokenService
+    public class TokenService : ITokenService
     {
+        private readonly UserManager<AppUser> userManager;
+        private readonly TimeProvider timeProvider;
+        private readonly SigningCredentials credentials;
+        private readonly string issuer;
+        private readonly string audience;
+
+        public TokenService(IOptions<JwtOptions> options, UserManager<AppUser> userManager, TimeProvider timeProvider)
+        {
+            this.userManager = userManager;
+            this.timeProvider = timeProvider;
+
+            var jwtOptions = options.Value;
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key));
+            credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            issuer = jwtOptions.VivcordServer;
+            audience = jwtOptions.VivcordClient;
+        }
+
         public async Task<string> GetTokenAsync(AppUser user)
         {
             var claims = new List<Claim>
@@ -29,15 +47,7 @@ namespace Vivcord.Server.Infastructure.Jwt
             var roles = await userManager.GetRolesAsync(user);
             claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
-            string secretKey = config["JwtSetting:Key"] ?? throw new InvalidOperationException("JWT Secret Key is not configured.");
-
-            string issuer = config["JwtSetting:VivcordServer"] ?? throw new InvalidOperationException("JWT Issuer is not configured.");
-            string audience = config["JwtSetting:VivcordClient"] ?? throw new InvalidOperationException("JWT Audience is not configured.");
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
-            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var TokenDecs = new SecurityTokenDescriptor
+            var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
                 Expires = timeProvider.GetUtcNow().AddMinutes(10).UtcDateTime,
@@ -46,10 +56,8 @@ namespace Vivcord.Server.Infastructure.Jwt
                 Audience = audience
             };
 
-            var Handler = new JwtSecurityTokenHandler();
-            var token = Handler.CreateToken(TokenDecs);
-
-            return Handler.WriteToken(token);
+            var handler = new JsonWebTokenHandler();
+            return handler.CreateToken(tokenDescriptor);
         }
         public string GetRefreshToken()
         {

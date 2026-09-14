@@ -17,13 +17,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddScoped<ITokenService, TokenService>();
+
+builder.Services.AddOptions<JwtOptions>()
+    .BindConfiguration(JwtOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContactService, ContactService>();
 builder.Services.AddScoped<IMessagingService, MessageRedingService>();
 builder.Services.AddScoped<IMessageSendingService, MessageSendingService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
-builder.Services.AddSingleton<IVoiceChatService, VoiceChatService>();
+builder.Services.AddScoped<IVoiceChatService, VoiceChatService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IGroupChatService, GroupChatService>();
 builder.Services.AddHttpClient<IKlipyService, KlipyService>();
@@ -50,8 +56,9 @@ builder.Services.AddDbContext<MainDbContext>(options =>
 //Identity and roles
 builder.Services.AddVivcordIdentity();
 //JWT
-var jwtSetting = builder.Configuration.GetSection("JwtSetting");
-var key = Encoding.UTF8.GetBytes(jwtSetting["Key"]!);
+var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+    ?? throw new InvalidOperationException("JwtSetting section is not configured.");
+var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key));
 
 builder.Services.AddAuthentication(options =>
 {
@@ -63,11 +70,11 @@ builder.Services.AddAuthentication(options =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(key),
+        IssuerSigningKey = key,
         ValidateIssuer = true,
         ValidateAudience = true,
-        ValidIssuer = jwtSetting["VivcordServer"],
-        ValidAudience = jwtSetting["VivcordClient"],
+        ValidIssuer = jwtOptions.VivcordServer,
+        ValidAudience = jwtOptions.VivcordClient,
     };
     options.Events = new JwtBearerEvents
     {
