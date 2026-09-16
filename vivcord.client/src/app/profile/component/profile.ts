@@ -5,10 +5,13 @@ import { ProfileService } from '../service/profile.service';
 import { AccountService } from '@account/service/account.service';
 import { ToastService } from '../../shared/toast/service/toast.service';
 import { UserProfileDTO } from '../dto/profile.dto';
+import { VivcordSettingsComponent } from '../components/vivcord-settings/vivcord-settings';
+
+export type ProfileTab = 'profile' | 'vivcord';
 
 @Component({
   selector: 'app-profile',
-  imports: [FormsModule],
+  imports: [FormsModule, VivcordSettingsComponent],
   templateUrl: './profile.html',
   styleUrl: './profile.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -19,6 +22,7 @@ export class Profile implements OnInit {
   private readonly toastService = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
+  public readonly activeTab = signal<ProfileTab>('profile');
   public readonly profile = signal<UserProfileDTO | null>(null);
   public readonly isLoading = signal<boolean>(true);
   public readonly isEditingNickname = signal<boolean>(false);

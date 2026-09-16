@@ -3,13 +3,51 @@
     <!-- Header -->
     <header class="profile-header">
       <div class="profile-title-group">
-        <h2>My Profile</h2>
+        <h2>Settings</h2>
         <p class="profile-subtitle">Manage your account settings and appearance</p>
       </div>
       <button type="button" class="btn-logout" (click)="accountService.logout()" title="Sign out">
         Sign Out
       </button>
     </header>
+
+    <!-- Tab Switcher -->
+    <nav class="settings-tabs" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        class="settings-tab"
+        [class.active]="activeTab() === 'profile'"
+        [attr.aria-selected]="activeTab() === 'profile'"
+        (click)="activeTab.set('profile')"
+      >
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span>Profile</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="settings-tab"
+        [class.active]="activeTab() === 'vivcord'"
+        [attr.aria-selected]="activeTab() === 'vivcord'"
+        (click)="activeTab.set('vivcord')"
+      >
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Vivcord</span>
+      </button>
+    </nav>
+
+    @if (activeTab() === 'vivcord') {
+      <div class="profile-card">
+        <app-vivcord-settings />
+      </div>
+    } @else {
 
     @if (errorMessage()) {
       <div class="alert alert-error">
@@ -168,6 +206,7 @@
           </div>
         </div>
       </div>
+    }
     }
   </div>
 </div>

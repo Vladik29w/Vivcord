@@ -4,7 +4,7 @@
   justify-content: center;
   min-height: 100vh;
   width: 100vw;
-  background: radial-gradient(circle at 50% 25%, rgba(99, 102, 241, 0.08) 0%, transparent 65%), #121212;
+  background: radial-gradient(circle at 50% 25%, oklch(0.585 0.233 var(--accent-hue) / 0.08) 0%, transparent 65%), #121212;
   font-family: inherit;
 }
 
@@ -54,12 +54,12 @@
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  background: var(--accent-gradient);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 8px 24px oklch(0.585 0.233 var(--accent-hue) / 0.35);
   margin-bottom: 6px;
 }
 
@@ -134,7 +134,7 @@
 }
 
 .input-container:focus-within .input-icon {
-  color: #818cf8;
+  color: var(--accent-text);
 }
 
 .form-input {
@@ -151,8 +151,8 @@
 }
 
 .form-input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-ring);
   background: #202020;
 }
 
@@ -212,7 +212,7 @@
   justify-content: center;
   gap: 8px;
   padding: 13px;
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  background: var(--accent-gradient);
   color: #ffffff;
   border: none;
   border-radius: 10px;
@@ -220,13 +220,13 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 16px oklch(0.585 0.233 var(--accent-hue) / 0.35);
   font-family: inherit;
 }
 
 .auth-submit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #4f46e5, #4338ca);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+  background: linear-gradient(135deg, var(--accent-primary-hover), var(--accent-secondary));
+  box-shadow: 0 6px 20px oklch(0.585 0.233 var(--accent-hue) / 0.5);
   transform: translateY(-1px);
 }
 
@@ -262,7 +262,7 @@
 }
 
 .auth-switch-link {
-  color: #818cf8;
+  color: var(--accent-text);
   text-decoration: none;
   font-weight: 600;
   margin-left: 4px;
@@ -270,6 +270,6 @@
 }
 
 .auth-switch-link:hover {
-  color: #a5b4fc;
+  color: var(--accent-text-strong);
   text-decoration: underline;
 }

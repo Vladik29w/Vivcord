@@ -4,7 +4,7 @@
 }
 
 .voice-panel-container {
-  background: rgba(18, 23, 34, 0.95);
+  background: var(--bg-sidebar);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-md);
@@ -81,9 +81,9 @@
 }
 
 .btn-noise-filter.active {
-  background: rgba(99, 102, 241, 0.2);
-  color: #a5b4fc;
-  border-color: rgba(99, 102, 241, 0.4);
+  background: oklch(0.585 0.233 var(--accent-hue) / 0.2);
+  color: var(--accent-text);
+  border-color: oklch(0.585 0.233 var(--accent-hue) / 0.4);
 }
 
 .btn-end-call {
@@ -155,7 +155,7 @@
 }
 
 .avatar-circle.local-avatar {
-  background: linear-gradient(135deg, #4f46e5, #3730a3);
+  background: var(--accent-gradient);
 }
 
 .avatar-badge-muted {

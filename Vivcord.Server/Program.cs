@@ -23,7 +23,7 @@ builder.Services.AddOptions<JwtOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-builder.Services.AddSingleton<ITokenService, TokenService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContactService, ContactService>();
 builder.Services.AddScoped<IMessagingService, MessageRedingService>();

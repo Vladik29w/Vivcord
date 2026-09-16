@@ -21,9 +21,9 @@
   opacity: 0;
   transition: transform 0.55s cubic-bezier(0.18, 1.25, 0.4, 1),
               opacity 0.3s ease;
-  background: rgba(24, 24, 24, 0.95);
+  background: var(--bg-card);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md, 12px);
   padding: 10px 16px;
   display: flex;
@@ -31,9 +31,9 @@
   gap: 12px;
   min-width: 280px;
   max-width: 440px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--border-subtle);
   cursor: pointer;
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   font-family: inherit;
 }
 
@@ -43,15 +43,15 @@
 }
 
 .notify:hover {
-  background: rgba(30, 30, 30, 0.98);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--bg-card-hover);
+  border-color: var(--border-active);
 }
 
 .notify-avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #2a334a, #1a2030);
+  background: var(--accent-gradient);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -60,7 +60,7 @@
   color: #ffffff;
   overflow: hidden;
   flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--border-subtle);
 }
 
 .notify-avatar .avatar-img-circle {
@@ -74,8 +74,8 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--accent-primary, #6366f1);
+  background: oklch(0.585 0.233 var(--accent-hue) / 0.15);
+  color: var(--accent-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,12 +84,12 @@
 
 .notify-success .notify-icon-circle {
   background: rgba(34, 197, 94, 0.15);
-  color: var(--accent-success, #22c55e);
+  color: var(--accent-success);
 }
 
 .notify-error .notify-icon-circle {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--accent-danger, #ef4444);
+  color: var(--accent-danger);
 }
 
 .notify-content {
@@ -103,7 +103,7 @@
 .notify-title {
   font-weight: 600;
   font-size: 13px;
-  color: var(--text-primary, #ffffff);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -111,7 +111,7 @@
 
 .notify-message-text {
   font-size: 12px;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -120,7 +120,7 @@
 .btn-close-notify {
   background: transparent;
   border: none;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
   font-size: 11px;
@@ -130,6 +130,6 @@
 }
 
 .btn-close-notify:hover {
-  color: var(--text-primary, #ffffff);
-  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
 }

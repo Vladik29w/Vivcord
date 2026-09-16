@@ -1,0 +1,125 @@
+<div class="settings-sections">
+  <!-- Appearance: Theme -->
+  <section class="settings-section">
+    <div class="section-header">
+      <h3 class="section-title">Theme</h3>
+      <p class="section-description">Switch between dark and light appearance.</p>
+    </div>
+    <div class="theme-tabs" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        class="theme-tab"
+        [class.active]="themeService.theme() === 'dark'"
+        [attr.aria-selected]="themeService.theme() === 'dark'"
+        (click)="onThemeSelect('dark')"
+      >
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+        <span>Dark</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="theme-tab"
+        [class.active]="themeService.theme() === 'light'"
+        [attr.aria-selected]="themeService.theme() === 'light'"
+        (click)="onThemeSelect('light')"
+      >
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <span>Light</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Appearance: Accent Hue -->
+  <section class="settings-section">
+    <div class="section-header">
+      <h3 class="section-title">Accent Color</h3>
+      <p class="section-description">
+        Pick the hue used for buttons, highlights and other accents. Saturation and brightness stay fixed for readability.
+      </p>
+    </div>
+    <div class="hue-picker-row">
+      <span
+        class="hue-preview"
+        [style.background-color]="'oklch(0.585 0.233 ' + themeService.accentHue() + ')'"
+        title="Current accent color"
+      ></span>
+      <input
+        type="range"
+        class="hue-slider"
+        min="0"
+        max="360"
+        step="1"
+        [ngModel]="themeService.accentHue()"
+        (ngModelChange)="onHueChange($event)"
+      />
+      <span class="hue-value">{{ themeService.accentHue() }}°</span>
+    </div>
+  </section>
+
+  <!-- Appearance: Font -->
+  <section class="settings-section">
+    <div class="section-header">
+      <h3 class="section-title">Font</h3>
+      <p class="section-description">
+        Choose the app font. Additional fonts load from Google Fonts only when selected.
+      </p>
+    </div>
+    <div class="font-options">
+      @for (font of themeService.fonts; track font.id) {
+        <button
+          type="button"
+          class="font-card"
+          [class.active]="themeService.fontId() === font.id"
+          (click)="onFontChange(font.id)"
+        >
+          <span class="font-sample" [style.font-family]="font.cssFamily">Aa</span>
+          <span class="font-name">{{ font.label }}</span>
+          @if (themeService.fontId() === font.id) {
+            <span class="font-check">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </span>
+          }
+        </button>
+      }
+    </div>
+  </section>
+
+  <!-- Appearance: UI Scale -->
+  <section class="settings-section">
+    <div class="section-header">
+      <h3 class="section-title">Interface Size</h3>
+      <p class="section-description">Scale text and icons across the app.</p>
+    </div>
+    <div class="scale-row">
+      <span class="scale-label scale-label-small">A</span>
+      <input
+        type="range"
+        class="scale-slider"
+        min="0.85"
+        max="1.2"
+        step="0.05"
+        [ngModel]="themeService.uiScale()"
+        (ngModelChange)="onScaleChange($event)"
+      />
+      <span class="scale-label scale-label-large">A</span>
+      <span class="scale-value">{{ themeService.uiScale() * 100 | number: '1.0-0' }}%</span>
+    </div>
+    <small class="help-text">Changes apply instantly and are saved on this device.</small>
+  </section>
+</div>
