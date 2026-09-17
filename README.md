@@ -1,28 +1,36 @@
 # Vivcord
 
-> ⚠️ **Note:** This project is actively **under development** (Work in Progress). Features, architecture, and deployment configurations are subject to change.
+[![Deploy Status](https://img.shields.io/badge/Deployment-Azure-blue?style=flat-square&logo=microsoft-azure)](#)
+[![Backend](https://img.shields.io/badge/.NET-ASP.NET_Core-512BD4?style=flat-square&logo=dotnet)](#)
+[![Frontend](https://img.shields.io/badge/Angular-DD0031?style=flat-square&logo=angular)](#)
 
-Vivcord is a real-time messaging and voice communication platform built with modern web technologies. It allows users to manage friends, participate in real-time text chats, and join voice channels seamlessly.
+> **🌐 [Open Vivcord (Live Website)](https://vivcord-frontend.azurewebsites.net/)**
 
-## 🚀 Tech Stack
+**Vivcord** is a modern web messenger designed for real-time communication. The project is built with a focus on speed, seamless user experience, and advanced communication features, including text messaging and voice chats.
 
-* **Frontend:** Angular
-* **Backend:** ASP.NET Core (C#)
-* **Real-time Messaging:** SignalR
-* **Voice/Video (SFU):** LiveKit
-* **Database:** Entity Framework Core
+## Key Features
 
-## ☁️ Infrastructure & Hosting
+* **Real-Time Messaging:** Instant message delivery in private and group chats powered by WebSockets (SignalR).
+* **Voice Chats:** Seamless audio streaming integration using LiveKit for high-quality voice communication.
+* **GIF Integration:** Quick search and sending of GIF animations via the Klipy API.
+* **Security:** User authentication and authorization system using JWT tokens.
+* **Private & Group Rooms:** Flexible chat creation system for direct personal messaging and group communication.
 
-* **Web Hosting:** The main application (Frontend client and Backend APIs) is hosted on **Microsoft Azure**.
-* **SFU (Voice/Video):** Real-time media handling is powered by [LiveKit](https://livekit.io/), self-hosted on an **Oracle Virtual Machine**.
+## Tech Stack
 
-## ✨ Current Features (WIP)
+**Backend:**
+* C# / ASP.NET Core
+* Entity Framework Core
+* SQL Server (MSSQL)
+* SignalR (Real-time communication)
+* LiveKit Server SDK (Voice streaming)
 
-* **User Authentication:** Secure registration, login, and JWT-based session management.
-* **Friend System:** Send, accept, or decline friend requests and manage your friend list.
-* **Direct Messaging:** Real-time private text chat using SignalR hubs.
-* **Voice Chat:** Low-latency, reliable voice communication channels using LiveKit.
-* **User Profiles:** Basic user profile management.
+**Frontend:**
+* Angular 21
+* RxJS
+* Angular Signals
 
-*Link to main page and instructions for local setup and docker deployment will be expanded as the project stabilizes.*
+**Infrastructure & DevOps:**
+* Docker & Docker Compose
+* GitHub Actions (CI/CD pipelines)
+* Microsoft Azure (Hosting)
