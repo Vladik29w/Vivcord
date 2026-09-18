@@ -154,6 +154,7 @@ export class ThemeService {
     root.setAttribute('data-theme', this.theme());
     root.style.setProperty('--accent-hue', String(this.accentHue()));
     root.style.setProperty('--ui-scale', String(this.uiScale()));
+    root.style.setProperty('zoom', String(this.uiScale()));
     root.style.setProperty('--font-app', this.currentFont().cssFamily);
   }
 
