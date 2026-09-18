@@ -103,26 +103,5 @@
       }
     </div>
   </section>
-
-  <!-- Appearance: UI Scale -->
-  <section class="settings-section">
-    <div class="section-header">
-      <h3 class="section-title">Interface Size</h3>
-    </div>
-    <div class="scale-row">
-      <span class="scale-label scale-label-small">A</span>
-      <input
-        type="range"
-        class="scale-slider"
-        min="0.85"
-        max="1.2"
-        step="0.05"
-        [ngModel]="themeService.uiScale()"
-        (ngModelChange)="onScaleChange($event)"
-      />
-      <span class="scale-label scale-label-large">A</span>
-      <span class="scale-value">{{ themeService.uiScale() * 100 | number: '1.0-0' }}%</span>
-    </div>
-    <small class="help-text">Changes apply instantly and are saved on this device.</small>
-  </section>
 </div>
+

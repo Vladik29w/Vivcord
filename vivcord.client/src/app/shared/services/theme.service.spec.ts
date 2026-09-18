@@ -9,9 +9,8 @@ describe('ThemeService', () => {
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.style.removeProperty('--accent-hue');
-    document.documentElement.style.removeProperty('--ui-scale');
-    document.documentElement.style.removeProperty('zoom');
     document.documentElement.style.removeProperty('--font-app');
+    document.documentElement.style.removeProperty('--chat-bg');
 
     TestBed.configureTestingModule({
       providers: [provideZonelessChangeDetection(), ThemeService],
@@ -24,48 +23,61 @@ describe('ThemeService', () => {
     localStorage.clear();
   });
 
-  it('should be created with default uiScale of 1', () => {
+  it('should be created with default values', () => {
     expect(service).toBeTruthy();
-    expect(service.uiScale()).toBe(1);
+    expect(service.theme()).toBe('dark');
+    expect(service.accentHue()).toBe(244);
+    expect(service.fontId()).toBe('red-hat-text');
+    expect(service.chatGradient()).toBe(true);
   });
 
-  it('should update uiScale and apply zoom and --ui-scale to documentElement', async () => {
-    service.setUiScale(1.15);
+  it('should update theme and apply data-theme to documentElement', () => {
+    service.setTheme('light');
     TestBed.tick();
 
-    expect(service.uiScale()).toBe(1.15);
-    expect(document.documentElement.style.getPropertyValue('--ui-scale')).toBe('1.15');
-    expect(document.documentElement.style.getPropertyValue('zoom')).toBe('1.15');
+    expect(service.theme()).toBe('light');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
 
-  it('should clamp uiScale within range [0.85, 1.2]', () => {
-    service.setUiScale(2.0);
+  it('should update accentHue and clamp within range [0, 360]', () => {
+    service.setAccentHue(120);
     TestBed.tick();
-    expect(service.uiScale()).toBe(1.2);
-    expect(document.documentElement.style.getPropertyValue('zoom')).toBe('1.2');
+    expect(service.accentHue()).toBe(120);
+    expect(document.documentElement.style.getPropertyValue('--accent-hue')).toBe('120');
 
-    service.setUiScale(0.5);
+    service.setAccentHue(400);
     TestBed.tick();
-    expect(service.uiScale()).toBe(0.85);
-    expect(document.documentElement.style.getPropertyValue('zoom')).toBe('0.85');
+    expect(service.accentHue()).toBe(360);
+
+    service.setAccentHue(-10);
+    TestBed.tick();
+    expect(service.accentHue()).toBe(0);
   });
 
-  it('should preserve font selection when scaling and vice-versa', () => {
+  it('should update fontId and apply font to documentElement', () => {
     service.setFont('inter');
-    service.setUiScale(1.1);
     TestBed.tick();
 
     expect(service.fontId()).toBe('inter');
-    expect(service.uiScale()).toBe(1.1);
-    expect(document.documentElement.style.getPropertyValue('zoom')).toBe('1.1');
     expect(document.documentElement.style.getPropertyValue('--font-app')).toContain('Inter');
   });
 
-  it('should persist uiScale to localStorage', () => {
-    service.setUiScale(1.1);
+  it('should toggle chatGradient and update --chat-bg', () => {
+    service.setChatGradient(false);
+    TestBed.tick();
+
+    expect(service.chatGradient()).toBe(false);
+    expect(document.documentElement.style.getPropertyValue('--chat-bg')).toBe('#121212');
+  });
+
+  it('should persist settings to localStorage', () => {
+    service.setAccentHue(180);
+    service.setFont('jetbrains-mono');
     TestBed.tick();
 
     const stored = JSON.parse(localStorage.getItem('vivcord-settings') || '{}');
-    expect(stored.uiScale).toBe(1.1);
+    expect(stored.accentHue).toBe(180);
+    expect(stored.fontId).toBe('jetbrains-mono');
+    expect(stored.uiScale).toBeUndefined();
   });
 });

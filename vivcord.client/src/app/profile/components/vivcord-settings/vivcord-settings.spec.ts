@@ -29,9 +29,14 @@ describe('VivcordSettingsComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should call themeService.setUiScale when onScaleChange is invoked', () => {
-    component.onScaleChange('1.15');
-    expect(themeService.uiScale()).toBe(1.15);
+  it('should call themeService.setAccentHue when onHueChange is invoked', () => {
+    component.onHueChange('180');
+    expect(themeService.accentHue()).toBe(180);
+  });
+
+  it('should call themeService.setChatGradient when onChatGradientToggle is invoked', () => {
+    component.onChatGradientToggle(false);
+    expect(themeService.chatGradient()).toBe(false);
   });
 
   it('should call themeService.setFont when onFontChange is invoked', () => {

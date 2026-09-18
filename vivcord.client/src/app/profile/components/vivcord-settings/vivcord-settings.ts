@@ -1,11 +1,10 @@
 import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ThemeService, ThemeMode } from '../../../shared/services/theme.service';
 
 @Component({
   selector: 'app-vivcord-settings',
-  imports: [FormsModule, DecimalPipe],
+  imports: [FormsModule],
   templateUrl: './vivcord-settings.html',
   styleUrl: './vivcord-settings.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -23,10 +22,6 @@ export class VivcordSettingsComponent {
 
   public onFontChange(fontId: string): void {
     this.themeService.setFont(fontId);
-  }
-
-  public onScaleChange(scale: number | string): void {
-    this.themeService.setUiScale(Number(scale));
   }
 
   public onChatGradientToggle(enabled: boolean): void {

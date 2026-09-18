@@ -1,7 +1,6 @@
 :root {
   /* User-controlled (set by ThemeService) */
   --accent-hue: 244;
-  --ui-scale: 1;
   --font-app: 'Red Hat Text', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -115,13 +114,6 @@
 
 html {
   font-size: 14px;
-  zoom: var(--ui-scale);
-}
-
-@supports not (zoom: 1) {
-  html {
-    font-size: calc(14px * var(--ui-scale));
-  }
 }
 
 app-root {

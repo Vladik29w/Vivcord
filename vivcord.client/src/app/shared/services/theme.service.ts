@@ -14,7 +14,6 @@ export interface VivcordSettings {
   readonly theme: ThemeMode;
   readonly accentHue: number;
   readonly fontId: string;
-  readonly uiScale: number;
   readonly chatGradient: boolean;
 }
 
@@ -47,7 +46,6 @@ const DEFAULT_SETTINGS: VivcordSettings = {
   theme: 'dark',
   accentHue: 244,
   fontId: DEFAULT_FONT_ID,
-  uiScale: 1,
   chatGradient: true,
 };
 
@@ -61,7 +59,6 @@ export class ThemeService {
   public readonly theme = signal<ThemeMode>(DEFAULT_SETTINGS.theme);
   public readonly accentHue = signal<number>(DEFAULT_SETTINGS.accentHue);
   public readonly fontId = signal<string>(DEFAULT_SETTINGS.fontId);
-  public readonly uiScale = signal<number>(DEFAULT_SETTINGS.uiScale);
   public readonly chatGradient = signal<boolean>(DEFAULT_SETTINGS.chatGradient);
 
   public readonly fonts = FONT_OPTIONS;
@@ -100,10 +97,6 @@ export class ThemeService {
     this.fontId.set(fontId);
   }
 
-  public setUiScale(scale: number): void {
-    this.uiScale.set(Math.min(1.2, Math.max(0.85, scale)));
-  }
-
   public setChatGradient(enabled: boolean): void {
     this.chatGradient.set(enabled);
   }
@@ -126,9 +119,6 @@ export class ThemeService {
       if (typeof parsed.accentHue === 'number' && Number.isFinite(parsed.accentHue)) {
         this.accentHue.set(Math.min(360, Math.max(0, parsed.accentHue)));
       }
-      if (typeof parsed.uiScale === 'number' && Number.isFinite(parsed.uiScale)) {
-        this.uiScale.set(Math.min(1.2, Math.max(0.85, parsed.uiScale)));
-      }
       if (typeof parsed.fontId === 'string' && FONT_OPTIONS.some((f) => f.id === parsed.fontId)) {
         const font = FONT_OPTIONS.find((f) => f.id === parsed.fontId)!;
         if (font.googleFontUrl) {
@@ -150,7 +140,6 @@ export class ThemeService {
         theme: this.theme(),
         accentHue: this.accentHue(),
         fontId: this.fontId(),
-        uiScale: this.uiScale(),
         chatGradient: this.chatGradient(),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
@@ -166,8 +155,6 @@ export class ThemeService {
 
     root.setAttribute('data-theme', this.theme());
     root.style.setProperty('--accent-hue', String(hue));
-    root.style.setProperty('--ui-scale', String(this.uiScale()));
-    root.style.setProperty('zoom', String(this.uiScale()));
     root.style.setProperty('--font-app', this.currentFont().cssFamily);
 
     if (this.chatGradient()) {
