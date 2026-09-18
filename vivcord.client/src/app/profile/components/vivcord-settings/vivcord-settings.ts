@@ -28,4 +28,8 @@ export class VivcordSettingsComponent {
   public onScaleChange(scale: number | string): void {
     this.themeService.setUiScale(Number(scale));
   }
+
+  public onChatGradientToggle(enabled: boolean): void {
+    this.themeService.setChatGradient(enabled);
+  }
 }

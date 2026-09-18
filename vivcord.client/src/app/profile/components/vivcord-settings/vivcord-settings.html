@@ -64,6 +64,17 @@
       />
       <span class="hue-value">{{ themeService.accentHue() }}°</span>
     </div>
+    <label class="gradient-toggle-row">
+      <span class="gradient-toggle-label">Chat background gradient</span>
+      <span class="toggle-switch">
+        <input
+          type="checkbox"
+          [checked]="themeService.chatGradient()"
+          (change)="onChatGradientToggle($any($event.target).checked)"
+        />
+        <span class="toggle-track"></span>
+      </span>
+    </label>
   </section>
 
   <!-- Appearance: Font -->

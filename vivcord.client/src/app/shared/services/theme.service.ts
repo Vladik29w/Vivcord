@@ -15,6 +15,7 @@ export interface VivcordSettings {
   readonly accentHue: number;
   readonly fontId: string;
   readonly uiScale: number;
+  readonly chatGradient: boolean;
 }
 
 const STORAGE_KEY = 'vivcord-settings';
@@ -47,6 +48,7 @@ const DEFAULT_SETTINGS: VivcordSettings = {
   accentHue: 244,
   fontId: DEFAULT_FONT_ID,
   uiScale: 1,
+  chatGradient: true,
 };
 
 @Injectable({
@@ -60,6 +62,7 @@ export class ThemeService {
   public readonly accentHue = signal<number>(DEFAULT_SETTINGS.accentHue);
   public readonly fontId = signal<string>(DEFAULT_SETTINGS.fontId);
   public readonly uiScale = signal<number>(DEFAULT_SETTINGS.uiScale);
+  public readonly chatGradient = signal<boolean>(DEFAULT_SETTINGS.chatGradient);
 
   public readonly fonts = FONT_OPTIONS;
 
@@ -101,6 +104,10 @@ export class ThemeService {
     this.uiScale.set(Math.min(1.2, Math.max(0.85, scale)));
   }
 
+  public setChatGradient(enabled: boolean): void {
+    this.chatGradient.set(enabled);
+  }
+
   public currentFont(): FontOption {
     return FONT_OPTIONS.find((f) => f.id === this.fontId()) ?? FONT_OPTIONS[0];
   }
@@ -129,6 +136,9 @@ export class ThemeService {
         }
         this.fontId.set(parsed.fontId);
       }
+      if (typeof parsed.chatGradient === 'boolean') {
+        this.chatGradient.set(parsed.chatGradient);
+      }
     } catch {
       // Corrupted settings — fall back to defaults
     }
@@ -141,6 +151,7 @@ export class ThemeService {
         accentHue: this.accentHue(),
         fontId: this.fontId(),
         uiScale: this.uiScale(),
+        chatGradient: this.chatGradient(),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     } catch {
@@ -150,12 +161,23 @@ export class ThemeService {
 
   private applyToDom(): void {
     const root = this.document.documentElement;
+    const hue = this.accentHue();
+    const isDark = this.theme() === 'dark';
 
     root.setAttribute('data-theme', this.theme());
-    root.style.setProperty('--accent-hue', String(this.accentHue()));
+    root.style.setProperty('--accent-hue', String(hue));
     root.style.setProperty('--ui-scale', String(this.uiScale()));
     root.style.setProperty('zoom', String(this.uiScale()));
     root.style.setProperty('--font-app', this.currentFont().cssFamily);
+
+    if (this.chatGradient()) {
+      const chatBg = isDark
+        ? `linear-gradient(145deg, #121212 15%, oklch(0.20 0.08 ${hue}) 100%)`
+        : `linear-gradient(145deg, #f2f3f5 15%, oklch(0.88 0.06 ${hue}) 100%)`;
+      root.style.setProperty('--chat-bg', chatBg);
+    } else {
+      root.style.setProperty('--chat-bg', isDark ? '#121212' : '#f2f3f5');
+    }
   }
 
   private loadFont(font: FontOption): void {

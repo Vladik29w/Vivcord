@@ -148,6 +148,7 @@
   padding: 16px 20px;
   display: flex;
   flex-direction: column;
+  background: var(--chat-bg);
 }
 
 .chat-messages-container {
