@@ -40,14 +40,13 @@ namespace Vivcord.Server.Services
                     .ToList();
                 return errors;
             }
-            var roles = new List<string> { "User", "Admin" };
-            await manager.AddToRoleAsync(user, roles[0]);
+            await manager.AddToRoleAsync(user, "User");
             var token = await tokenService.GetTokenAsync(user);
 
             var refreshToken = await SetRefreshToken(user.Id, ct);
             return new UserTokensDTO
             {
-                User = new UserDTO { Id = user.Id.ToString(), Email = register.Email!, DisplayName = user.DisplayName, ProfilePictureUrl = user.ProfilePictureUrl, Roles = roles },
+                User = new UserDTO { Id = user.Id.ToString(), Email = register.Email!, DisplayName = user.DisplayName, ProfilePictureUrl = user.ProfilePictureUrl, Roles = ["User"] },
                 Token = token,
                 RefreshToken = refreshToken,
             };

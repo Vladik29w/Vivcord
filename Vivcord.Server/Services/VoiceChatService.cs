@@ -42,6 +42,7 @@ namespace Vivcord.Server.Services
             PrivateCallRequestDTO request,
             CancellationToken cancellationToken = default)
         {
+            var users = await dbContext.Users
                 .AsNoTracking()
                 .Where(u => u.UserName == request.TargetUsername || u.Id == callerId)
                 .Select(u => new { u.Id, u.UserName, u.ProfilePictureUrl })
