@@ -42,20 +42,23 @@ namespace Vivcord.Server.Services
             PrivateCallRequestDTO request,
             CancellationToken cancellationToken = default)
         {
-            var target = await dbContext.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.UserName == request.TargetUsername, cancellationToken);
+                .Where(u => u.UserName == request.TargetUsername || u.Id == callerId)
+                .Select(u => new { u.Id, u.UserName, u.ProfilePictureUrl })
+                .ToListAsync(cancellationToken);
 
+            var target = users.FirstOrDefault(u => string.Equals(u.UserName, request.TargetUsername, StringComparison.OrdinalIgnoreCase));
             if (target == null)
                 return Error.NotFound("UserNotFound", $"User '{request.TargetUsername}' not found.");
 
-            var callerHasTarget = await dbContext.UserFriends
-                .AnyAsync(uf => uf.UserId == callerId && uf.FriendId == target.Id, cancellationToken);
+            if (callerId == target.Id)
+                return Error.Conflict("InvalidCall", "You cannot call yourself.");
 
-            var targetHasCaller = await dbContext.UserFriends
-                .AnyAsync(uf => uf.UserId == target.Id && uf.FriendId == callerId, cancellationToken);
+            var areMutualFriends = await dbContext.UserFriends
+                .CountAsync(uf => (uf.UserId == callerId && uf.FriendId == target.Id) ||
+                                  (uf.UserId == target.Id && uf.FriendId == callerId), cancellationToken) == 2;
 
-            if (!callerHasTarget || !targetHasCaller)
+            if (!areMutualFriends)
                 return Error.Forbidden("NotFriends", "Voice calls are only available between mutual friends.");
 
             var sortedIds = new[] { callerId, target.Id }.OrderBy(id => id).ToList();
@@ -63,9 +66,7 @@ namespace Vivcord.Server.Services
             var identity = callerId.ToString();
             var displayName = string.IsNullOrWhiteSpace(callerDisplayName) ? identity : callerDisplayName;
 
-            var caller = await dbContext.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == callerId, cancellationToken);
+            var caller = users.FirstOrDefault(u => u.Id == callerId);
 
             var token = GenerateToken(roomId, identity, displayName, caller?.ProfilePictureUrl);
             return new VoiceCallResponseDTO(roomId, token);
@@ -78,7 +79,6 @@ namespace Vivcord.Server.Services
             CancellationToken cancellationToken = default)
         {
             var group = await dbContext.GroupChats
-                .AsNoTracking()
                 .FirstOrDefaultAsync(g => g.id == request.GroupId, cancellationToken);
 
             if (group == null)
@@ -92,24 +92,20 @@ namespace Vivcord.Server.Services
 
             if (group.VoiceRoomId == Guid.Empty)
             {
-                var groupToUpdate = await dbContext.GroupChats.FirstOrDefaultAsync(g => g.id == request.GroupId, cancellationToken);
-                if (groupToUpdate != null && groupToUpdate.VoiceRoomId == Guid.Empty)
-                {
-                    groupToUpdate.VoiceRoomId = Guid.NewGuid();
-                    await dbContext.SaveChangesAsync(cancellationToken);
-                    group = groupToUpdate;
-                }
+                group.VoiceRoomId = Guid.NewGuid();
+                await dbContext.SaveChangesAsync(cancellationToken);
             }
 
             var roomId = group.VoiceRoomId.ToString();
             var identity = callerId.ToString();
             var displayName = string.IsNullOrWhiteSpace(callerDisplayName) ? identity : callerDisplayName;
 
-            var caller = await dbContext.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == callerId, cancellationToken);
+            var profilePictureUrl = await dbContext.Users
+                .Where(u => u.Id == callerId)
+                .Select(u => u.ProfilePictureUrl)
+                .FirstOrDefaultAsync(cancellationToken);
 
-            var token = GenerateToken(roomId, identity, displayName, caller?.ProfilePictureUrl);
+            var token = GenerateToken(roomId, identity, displayName, profilePictureUrl);
             return new VoiceCallResponseDTO(roomId, token);
         }
     }
