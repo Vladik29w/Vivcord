@@ -1,15 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Extensions;
 using Vivcord.Server.Services;
 using Vivcord.Server.Services.MessagingServices;
 
 namespace Vivcord.Server.Hubs
 {
     [Authorize]
-    public class GroupChatHub(IMessageSendingService messageSendingService, IGroupChatService groupChatService, MainDbContext dbContext) : Hub
+    public class GroupChatHub(IMessageSendingService messageSendingService, IGroupChatService groupChatService) : Hub
     {
         public override async Task OnConnectedAsync()
         {
@@ -38,12 +37,7 @@ namespace Vivcord.Server.Hubs
         {
             var senderId = Context.UserIdentifier!;
             var senderGuid = Guid.Parse(senderId);
-
-            var senderName = Context.User?.FindFirst("displayName")?.Value
-                ?? Context.User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
-                ?? Context.User?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.UniqueName)?.Value
-                ?? Context.User?.Identity?.Name
-                ?? senderId;
+            var senderName = Context.User.GetDisplayName() ?? senderId;
 
             var messageDto = new GroupMessageDto
             {
@@ -60,10 +54,6 @@ namespace Vivcord.Server.Hubs
                 messageDto,
                 Context.ConnectionAborted);
 
-            var senderUser = await dbContext.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == senderGuid, Context.ConnectionAborted);
-
             await Clients.Group(dto.GroupId.ToString()).SendAsync(
                 "ReceiveMessage",
                 senderId,
@@ -72,7 +62,7 @@ namespace Vivcord.Server.Hubs
                 savedMessage.SasAttachmentUrl,
                 dto.AttachmentType,
                 senderName,
-                senderUser?.ProfilePictureUrl,
+                savedMessage.SenderAvatarUrl,
                 savedMessage.SentAt,
                 dto.GroupId);
 

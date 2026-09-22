@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Models;
@@ -23,6 +24,14 @@ namespace Vivcord.Server.Services.MessagingServices
             return result.IsError ? null : result.Value;
         }
 
+        private Task<string?> GetUserAvatarUrlAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            return dbContext.Users
+                .Where(u => u.Id == userId)
+                .Select(u => u.ProfilePictureUrl)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         public async Task<MessageSendResult> SendPrivateMessageAsync(PrivateMessageDto messageDto, CancellationToken cancellationToken = default)
         {
             var userMessage = new PrivateMessage
@@ -38,7 +47,14 @@ namespace Vivcord.Server.Services.MessagingServices
             dbContext.PrivateMessages.Add(userMessage);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return new MessageSendResult(userMessage.id, ToSasUrl(messageDto.AttachmentUrl), userMessage.SentAt);
+            var senderAvatarUrl = await GetUserAvatarUrlAsync(messageDto.SenderId, cancellationToken);
+
+            return new MessageSendResult(
+                userMessage.id,
+                ToSasUrl(messageDto.AttachmentUrl),
+                userMessage.SentAt,
+                SenderName: messageDto.SenderName,
+                SenderAvatarUrl: senderAvatarUrl);
         }
 
         public async Task<MessageSendResult> SendGroupMessageAsync(GroupMessageDto messageDto, CancellationToken cancellationToken = default)
@@ -56,7 +72,14 @@ namespace Vivcord.Server.Services.MessagingServices
             dbContext.GroupMessages.Add(userMessage);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return new MessageSendResult(userMessage.id, ToSasUrl(messageDto.AttachmentUrl), userMessage.SentAt);
+            var senderAvatarUrl = await GetUserAvatarUrlAsync(messageDto.SenderId, cancellationToken);
+
+            return new MessageSendResult(
+                userMessage.id,
+                ToSasUrl(messageDto.AttachmentUrl),
+                userMessage.SentAt,
+                SenderName: messageDto.SenderName,
+                SenderAvatarUrl: senderAvatarUrl);
         }
     }
 }

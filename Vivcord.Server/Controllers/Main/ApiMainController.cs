@@ -3,34 +3,16 @@ using System.Security.Claims;
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Vivcord.Server.Extensions;
 
 namespace Vivcord.Server.Controllers.Main
 {
     [ApiController]
     public class ApiMainController : ControllerBase
     {
-        protected Guid? CurrentUserId
-        {
-            get
-            {
-                var id = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                         ?? User.FindFirstValue(JwtRegisteredClaimNames.NameId);
-                return Guid.TryParse(id, out var guid) ? guid : null;
-            }
-        }
+        protected Guid? CurrentUserId => User.GetUserId();
 
-        protected string? CurrentUserDisplayName
-        {
-            get
-            {
-                var displayName = User.FindFirstValue("displayName");
-                if (!string.IsNullOrWhiteSpace(displayName))
-                    return displayName;
-
-                return User.FindFirstValue(ClaimTypes.Name)
-                       ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName);
-            }
-        }
+        protected string? CurrentUserDisplayName => User.GetDisplayName();
 
         protected IActionResult Problem(List<Error> errors)
         {
