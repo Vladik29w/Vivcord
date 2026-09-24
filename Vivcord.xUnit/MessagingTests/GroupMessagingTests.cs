@@ -1,7 +1,9 @@
+using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Models;
 using Vivcord.Server.Services;
 using Vivcord.Server.Services.MessagingServices;
 
@@ -33,6 +35,12 @@ public class GroupMessagingTests
     private static MessageSendingService CreateService(MainDbContext db, TimeProvider? time = null)
         => new(db, time ?? TimeProvider.System, NullBlobStorage());
 
+    private static async Task AddMemberAsync(MainDbContext db, int groupId, Guid userId)
+    {
+        db.GroupChatMembers.Add(new GroupChatMember { GroupChatId = groupId, UserId = userId });
+        await db.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task SendGroupMessageAsync_Persists_Message_To_Database()
     {
@@ -49,14 +57,42 @@ public class GroupMessagingTests
             AttachmentUrl = null,
             AttachmentType = null
         };
+        await AddMemberAsync(db, dto.GroupId, dto.SenderId);
 
         // Act
-        await service.SendGroupMessageAsync(dto);
+        var result = await service.SendGroupMessageAsync(dto);
 
         // Assert
+        Assert.False(result.IsError);
         var saved = await db.GroupMessages.FirstOrDefaultAsync();
         Assert.NotNull(saved);
         Assert.Equal("Hello group!", saved.Text);
+    }
+
+    [Fact]
+    public async Task SendGroupMessageAsync_WhenUserNotMember_ReturnsForbidden()
+    {
+        // Arrange
+        await using var db = CreateDbContext();
+        var service = CreateService(db);
+
+        var dto = new GroupMessageDto
+        {
+            Id = 0,
+            SenderId = Guid.NewGuid(),
+            GroupId = 1,
+            Text = "Unauthorized message",
+            AttachmentUrl = null,
+            AttachmentType = null
+        };
+
+        // Act
+        var result = await service.SendGroupMessageAsync(dto);
+
+        // Assert
+        Assert.True(result.IsError);
+        Assert.Equal(ErrorType.Forbidden, result.FirstError.Type);
+        Assert.Equal(0, await db.GroupMessages.CountAsync());
     }
 
     [Fact]
@@ -78,16 +114,18 @@ public class GroupMessagingTests
             AttachmentUrl = null,
             AttachmentType = null
         };
+        await AddMemberAsync(db, groupId, senderGuid);
 
         // Act
         var result = await service.SendGroupMessageAsync(dto);
 
         // Assert — returned result
+        Assert.False(result.IsError);
         var saved = await db.GroupMessages.FirstOrDefaultAsync();
         Assert.NotNull(saved);
         Assert.Equal(senderGuid, saved.Sender);
         Assert.Equal(groupId, saved.GroupId);
-        Assert.Equal(result.Id, saved.id);
+        Assert.Equal(result.Value.Id, saved.id);
     }
 
     [Fact]
@@ -108,11 +146,13 @@ public class GroupMessagingTests
             AttachmentUrl = null,
             AttachmentType = null
         };
+        await AddMemberAsync(db, dto.GroupId, dto.SenderId);
 
         // Act
-        await service.SendGroupMessageAsync(dto);
+        var result = await service.SendGroupMessageAsync(dto);
 
         // Assert
+        Assert.False(result.IsError);
         var saved = await db.GroupMessages.FirstOrDefaultAsync();
         Assert.NotNull(saved);
         Assert.Equal(frozenNow, saved.SentAt);
@@ -134,12 +174,14 @@ public class GroupMessagingTests
             AttachmentUrl = null,
             AttachmentType = null
         };
+        await AddMemberAsync(db, dto.GroupId, dto.SenderId);
 
         // Act
         var result = await service.SendGroupMessageAsync(dto);
 
         // Assert
-        Assert.Null(result.SasAttachmentUrl);
+        Assert.False(result.IsError);
+        Assert.Null(result.Value.SasAttachmentUrl);
     }
 
     [Fact]
@@ -163,13 +205,15 @@ public class GroupMessagingTests
             AttachmentUrl = "images/photo.jpg",
             AttachmentType = "image"
         };
+        await AddMemberAsync(db, dto.GroupId, dto.SenderId);
 
         // Act
         var result = await service.SendGroupMessageAsync(dto);
 
         // Assert — SAS URL was generated and returned
-        Assert.NotNull(result.SasAttachmentUrl);
-        Assert.Contains("sas=token", result.SasAttachmentUrl);
+        Assert.False(result.IsError);
+        Assert.NotNull(result.Value.SasAttachmentUrl);
+        Assert.Contains("sas=token", result.Value.SasAttachmentUrl);
 
         // Assert — raw blob name is stored in DB, not the SAS URL
         var saved = await db.GroupMessages.FirstOrDefaultAsync();
@@ -207,12 +251,16 @@ public class GroupMessagingTests
             AttachmentUrl = null,
             AttachmentType = null
         };
+        await AddMemberAsync(db, groupId, senderA);
+        await AddMemberAsync(db, groupId, senderB);
 
         // Act
-        await service.SendGroupMessageAsync(dto1);
-        await service.SendGroupMessageAsync(dto2);
+        var res1 = await service.SendGroupMessageAsync(dto1);
+        var res2 = await service.SendGroupMessageAsync(dto2);
 
         // Assert — two distinct rows were created
+        Assert.False(res1.IsError);
+        Assert.False(res2.IsError);
         var all = await db.GroupMessages.OrderBy(m => m.id).ToListAsync();
         Assert.Equal(2, all.Count);
 
@@ -233,10 +281,11 @@ public class GroupMessagingTests
         await using var db = CreateDbContext();
         var service = CreateService(db);
 
+        var sender = Guid.NewGuid();
         var dto1 = new GroupMessageDto
         {
             Id = 0,
-            SenderId = Guid.NewGuid(),
+            SenderId = sender,
             GroupId = 1,
             Text = "Group 1 message",
             AttachmentUrl = null,
@@ -245,18 +294,22 @@ public class GroupMessagingTests
         var dto2 = new GroupMessageDto
         {
             Id = 0,
-            SenderId = Guid.NewGuid(),
+            SenderId = sender,
             GroupId = 2,
             Text = "Group 2 message",
             AttachmentUrl = null,
             AttachmentType = null
         };
+        await AddMemberAsync(db, 1, sender);
+        await AddMemberAsync(db, 2, sender);
 
         // Act
-        await service.SendGroupMessageAsync(dto1);
-        await service.SendGroupMessageAsync(dto2);
+        var res1 = await service.SendGroupMessageAsync(dto1);
+        var res2 = await service.SendGroupMessageAsync(dto2);
 
         // Assert
+        Assert.False(res1.IsError);
+        Assert.False(res2.IsError);
         var group1Messages = await db.GroupMessages.Where(m => m.GroupId == 1).CountAsync();
         var group2Messages = await db.GroupMessages.Where(m => m.GroupId == 2).CountAsync();
         Assert.Equal(1, group1Messages);
@@ -271,7 +324,7 @@ public class GroupMessagingTests
         var service = CreateService(db);
 
         var senderId = Guid.NewGuid();
-        var user = new Vivcord.Server.Models.AppUser
+        var user = new AppUser
         {
             Id = senderId,
             UserName = "bob",
@@ -291,12 +344,14 @@ public class GroupMessagingTests
             AttachmentUrl = null,
             AttachmentType = null
         };
+        await AddMemberAsync(db, dto.GroupId, senderId);
 
         // Act
         var result = await service.SendGroupMessageAsync(dto);
 
         // Assert
-        Assert.Equal("https://example.com/bob-avatar.png", result.SenderAvatarUrl);
-        Assert.Equal("Bob", result.SenderName);
+        Assert.False(result.IsError);
+        Assert.Equal("https://example.com/bob-avatar.png", result.Value.SenderAvatarUrl);
+        Assert.Equal("Bob", result.Value.SenderName);
     }
 }

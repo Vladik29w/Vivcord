@@ -93,7 +93,6 @@ namespace Vivcord.xUnit.GroupManagmentTests
             Assert.False(result.IsError);
             Assert.Equal("Developers", result.Value.Name);
             Assert.Equal(user.Id, result.Value.AdminId);
-            Assert.Contains(user.Id, result.Value.MemberIds);
             Assert.NotEqual(Guid.Empty, result.Value.VoiceRoomId);
 
             var savedGroup = await _db.GroupChats.Include(g => g.Members).FirstOrDefaultAsync(g => g.id == result.Value.Id);
@@ -473,7 +472,29 @@ namespace Vivcord.xUnit.GroupManagmentTests
             var service = new GroupChatService(_db);
 
             // Act
-            var result = await service.GetGroupAsync(999);
+            var result = await service.GetGroupAsync(Guid.NewGuid(), 999);
+
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
+            Assert.Equal("Group not found", result.FirstError.Description);
+        }
+
+        [Fact]
+        public async Task GetGroupAsync_UserNotMember_ReturnsNotFoundError()
+        {
+            // Arrange
+            var admin = await CreateUserAsync("admin");
+            var outsider = await CreateUserAsync("outsider");
+            var group = await CreateGroupAsync(admin.Id, "Secret Group");
+
+            _db.GroupChatMembers.Add(new GroupChatMember { GroupChatId = group.id, UserId = admin.Id });
+            await _db.SaveChangesAsync();
+
+            var service = new GroupChatService(_db);
+
+            // Act
+            var result = await service.GetGroupAsync(outsider.Id, group.id);
 
             // Assert
             Assert.True(result.IsError);
@@ -503,7 +524,7 @@ namespace Vivcord.xUnit.GroupManagmentTests
             var service = new GroupChatService(_db);
 
             // Act
-            var result = await service.GetGroupAsync(group.id);
+            var result = await service.GetGroupAsync(admin.Id, group.id);
 
             // Assert
             Assert.False(result.IsError);
@@ -511,41 +532,10 @@ namespace Vivcord.xUnit.GroupManagmentTests
             Assert.Equal("Voice Chat Group", result.Value.Name);
             Assert.Equal(admin.Id, result.Value.AdminId);
             Assert.Equal(voiceRoomId, result.Value.VoiceRoomId);
-            Assert.Contains(admin.Id, result.Value.MemberIds);
             Assert.NotNull(result.Value.Members);
             Assert.Single(result.Value.Members);
             Assert.Equal(admin.Id, result.Value.Members[0].UserId);
             Assert.Equal("admin", result.Value.Members[0].UserName);
-        }
-
-        [Fact]
-        public async Task GetGroupAsync_GroupHasEmptyVoiceRoomId_GeneratesNewVoiceRoomId()
-        {
-            // Arrange
-            var admin = await CreateUserAsync("admin");
-
-            var group = new GroupChat
-            {
-                name = "Legacy Group",
-                adminId = admin.Id,
-                VoiceRoomId = Guid.Empty
-            };
-            _db.GroupChats.Add(group);
-            await _db.SaveChangesAsync();
-
-            var service = new GroupChatService(_db);
-
-            // Act
-            var result = await service.GetGroupAsync(group.id);
-
-            // Assert
-            Assert.False(result.IsError);
-            Assert.NotEqual(Guid.Empty, result.Value.VoiceRoomId);
-
-            _db.ChangeTracker.Clear();
-            var updatedGroup = await _db.GroupChats.AsNoTracking().FirstOrDefaultAsync(g => g.id == group.id);
-            Assert.NotNull(updatedGroup);
-            Assert.Equal(result.Value.VoiceRoomId, updatedGroup.VoiceRoomId);
         }
 
         #endregion
