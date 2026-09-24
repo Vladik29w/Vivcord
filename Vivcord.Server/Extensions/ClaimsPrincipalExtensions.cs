@@ -22,7 +22,7 @@ namespace Vivcord.Server.Extensions
         {
             if (user == null) return null;
 
-            var id = user.FindFirstValue(ClaimTypes.NameIdentifier)
+            var id = user.FindFirstValue(ClaimTypes.NameIdentifier) 
                      ?? user.FindFirstValue(JwtRegisteredClaimNames.NameId);
 
             return Guid.TryParse(id, out var guid) ? guid : null;

@@ -1,3 +1,4 @@
+using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
@@ -8,7 +9,7 @@ namespace Vivcord.Server.Services.MessagingServices
     public interface IMessageSendingService
     {
         Task<MessageSendResult> SendPrivateMessageAsync(PrivateMessageDto messageDto, CancellationToken cancellationToken = default);
-        Task<MessageSendResult> SendGroupMessageAsync(GroupMessageDto messageDto, CancellationToken cancellationToken = default);
+        Task<ErrorOr<MessageSendResult>> SendGroupMessageAsync(GroupMessageDto messageDto, CancellationToken cancellationToken = default);
     }
 
     public class MessageSendingService(MainDbContext dbContext, TimeProvider timeProvider, IBlobStorageService blobStorageService) : IMessageSendingService
@@ -57,8 +58,14 @@ namespace Vivcord.Server.Services.MessagingServices
                 SenderAvatarUrl: senderAvatarUrl);
         }
 
-        public async Task<MessageSendResult> SendGroupMessageAsync(GroupMessageDto messageDto, CancellationToken cancellationToken = default)
+        public async Task<ErrorOr<MessageSendResult>> SendGroupMessageAsync(GroupMessageDto messageDto, CancellationToken cancellationToken = default)
         {
+            var isMember = await dbContext.GroupChatMembers
+                .AnyAsync(m => m.GroupChatId == messageDto.GroupId && m.UserId == messageDto.SenderId, cancellationToken);
+
+            if (!isMember)
+                return Error.Forbidden(description: "You are not a member of this group");
+
             var userMessage = new GroupMessage
             {
                 Text = messageDto.Text,

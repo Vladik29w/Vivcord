@@ -1,3 +1,4 @@
+using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
@@ -7,7 +8,7 @@ namespace Vivcord.Server.Services.MessagingServices
     public interface IMessagingService
     {
         Task<IReadOnlyList<PrivateMessageDto>> GetPrivateChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default);
-        Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default);
+        Task<ErrorOr<IReadOnlyList<GroupMessageDto>>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default);
     }
     public class MessageRedingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessagingService
     {
@@ -60,41 +61,46 @@ namespace Vivcord.Server.Services.MessagingServices
             }).ToList();
         }
 
-        public async Task<IReadOnlyList<GroupMessageDto>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default)
+        public async Task<ErrorOr<IReadOnlyList<GroupMessageDto>>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default)
         {
-            var messages = await dbContext.GroupMessages
-                .Where(m => m.GroupId == groupId)
-                .OrderBy(m => m.SentAt)
-                .Select(m => new
+            var group = await dbContext.GroupChats
+                .Where(g => g.id == groupId && g.Members.Any(m => m.UserId == currentUserId))
+                .Select(g => new
                 {
-                    m.id,
-                    m.Sender,
-                    SenderName = m.SenderUser != null
-                        ? (!string.IsNullOrWhiteSpace(m.SenderUser.DisplayName) ? m.SenderUser.DisplayName : m.SenderUser.UserName)
-                        : null,
-                    SenderAvatarUrl = m.SenderUser != null ? m.SenderUser.ProfilePictureUrl : null,
-                    m.GroupId,
-                    m.Text,
-                    m.AttachmentUrl,
-                    m.AttachmentType,
-                    m.SentAt
+                    Messages = g.Messages
+                        .OrderBy(m => m.SentAt)
+                        .Select(m => new
+                        {
+                            m.id,
+                            m.Sender,
+                            SenderName = m.SenderUser != null
+                                ? (!string.IsNullOrWhiteSpace(m.SenderUser.DisplayName) ? m.SenderUser.DisplayName : m.SenderUser.UserName)
+                                : null,
+                            SenderAvatarUrl = m.SenderUser != null ? m.SenderUser.ProfilePictureUrl : null,
+                            m.GroupId,
+                            m.Text,
+                            m.AttachmentUrl,
+                            m.AttachmentType,
+                            m.SentAt
+                        })
+                        .ToList()
                 })
-                .ToListAsync(cancellationToken);
+                .FirstOrDefaultAsync(cancellationToken);
 
-            return messages.Select(m =>
+            if (group == null)
+                return Error.NotFound(description: "Group not found");
+
+            return group.Messages.Select(m => new GroupMessageDto
             {
-                return new GroupMessageDto
-                {
-                    Id = m.id,
-                    SenderId = m.Sender,
-                    SenderName = m.SenderName,
-                    SenderAvatarUrl = m.SenderAvatarUrl,
-                    GroupId = m.GroupId,
-                    Text = m.Text,
-                    AttachmentUrl = ResolveAttachmentUrl(m.AttachmentUrl),
-                    AttachmentType = m.AttachmentType,
-                    SentAt = m.SentAt
-                };
+                Id = m.id,
+                SenderId = m.Sender,
+                SenderName = m.SenderName,
+                SenderAvatarUrl = m.SenderAvatarUrl,
+                GroupId = m.GroupId,
+                Text = m.Text,
+                AttachmentUrl = ResolveAttachmentUrl(m.AttachmentUrl),
+                AttachmentType = m.AttachmentType,
+                SentAt = m.SentAt
             }).ToList();
         }
     }

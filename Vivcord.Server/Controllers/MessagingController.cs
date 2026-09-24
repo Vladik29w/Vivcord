@@ -25,8 +25,8 @@ namespace Vivcord.Server.Controllers
             if (CurrentUserId is not { } currentUserId)
                 return Unauthorized();
 
-            var history = await messagingService.GetGroupChatHistory(currentUserId, groupId, cancellationToken);
-            return Ok(history);
+            var result = await messagingService.GetGroupChatHistory(currentUserId, groupId, cancellationToken);
+            return result.Match(Ok, Problem);
         }
     }
 }

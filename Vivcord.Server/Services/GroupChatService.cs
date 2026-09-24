@@ -13,8 +13,9 @@ namespace Vivcord.Server.Services
         Task<ErrorOr<Success>> AddMemberAsync(Guid userId, int groupId, string username, CancellationToken cancellationToken = default);
         Task<ErrorOr<Success>> RemoveMemberAsync(Guid userId, int groupId, string username, CancellationToken cancellationToken = default);
         Task<ErrorOr<Success>> AssignAdminAsync(Guid userId, int groupId, string newAdminUsername, CancellationToken cancellationToken = default);
-        Task<ErrorOr<GroupChatDTO>> GetGroupAsync(int groupId, CancellationToken cancellationToken = default);
+        Task<ErrorOr<GroupChatDTO>> GetGroupAsync(Guid userId, int groupId, CancellationToken cancellationToken = default);
         Task<ErrorOr<IReadOnlyList<GroupChatDTO>>> GetUserGroupsAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<bool> IsMemberAsync(Guid userId, int groupId, CancellationToken cancellationToken = default);
     }
 
     public class GroupChatService(MainDbContext dbContext) : IGroupChatService
@@ -30,7 +31,7 @@ namespace Vivcord.Server.Services
                 name = dto.Name,
                 adminId = userId,
                 VoiceRoomId = Guid.NewGuid(),
-                Members = [new GroupChatMember { UserId = userId }]
+                Members = { new GroupChatMember { UserId = userId } }
             };
 
             dbContext.GroupChats.Add(newGroup);
@@ -41,7 +42,6 @@ namespace Vivcord.Server.Services
                 Id = newGroup.id,
                 Name = newGroup.name,
                 AdminId = newGroup.adminId,
-                MemberIds = [userId],
                 VoiceRoomId = newGroup.VoiceRoomId
             };
         }
@@ -166,16 +166,15 @@ namespace Vivcord.Server.Services
             return Result.Success;
         }
 
-        public async Task<ErrorOr<GroupChatDTO>> GetGroupAsync(int groupId, CancellationToken cancellationToken = default)
+        public async Task<ErrorOr<GroupChatDTO>> GetGroupAsync(Guid userId, int groupId, CancellationToken cancellationToken = default)
         {
             var groupDto = await dbContext.GroupChats
-                .Where(g => g.id == groupId)
+                .Where(g => g.id == groupId && g.Members.Any(m => m.UserId == userId))
                 .Select(g => new GroupChatDTO
                 {
                     Id = g.id,
                     Name = g.name,
                     AdminId = g.adminId,
-                    MemberIds = g.Members.Select(m => m.UserId).ToList(),
                     VoiceRoomId = g.VoiceRoomId,
                     Members = g.Members.Select(m => new UserProfileDTO(
                         m.UserId,
@@ -189,16 +188,6 @@ namespace Vivcord.Server.Services
             if (groupDto == null)
                 return Error.NotFound(description: "Group not found");
 
-            if (groupDto.VoiceRoomId == Guid.Empty)
-            {
-                var newVoiceRoomId = Guid.NewGuid();
-                await dbContext.GroupChats
-                    .Where(g => g.id == groupId)
-                    .ExecuteUpdateAsync(s => s.SetProperty(g => g.VoiceRoomId, newVoiceRoomId), cancellationToken);
-
-                groupDto = groupDto with { VoiceRoomId = newVoiceRoomId };
-            }
-
             return groupDto;
         }
 
@@ -211,12 +200,17 @@ namespace Vivcord.Server.Services
                     Id = g.id,
                     Name = g.name,
                     AdminId = g.adminId,
-                    MemberIds = g.Members.Select(m => m.UserId).ToList(),
                     VoiceRoomId = g.VoiceRoomId
                 })
                 .ToListAsync(cancellationToken);
 
             return groups.AsReadOnly();
+        }
+
+        public async Task<bool> IsMemberAsync(Guid userId, int groupId, CancellationToken cancellationToken = default)
+        {
+            return await dbContext.GroupChatMembers
+                .AnyAsync(m => m.GroupChatId == groupId && m.UserId == userId, cancellationToken);
         }
     }
 }

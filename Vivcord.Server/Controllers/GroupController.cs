@@ -76,7 +76,10 @@ namespace Vivcord.Server.Controllers
         [HttpGet("get/{groupId}")]
         public async Task<IActionResult> GetGroup(int groupId, CancellationToken cancellationToken)
         {
-            var result = await groupChatService.GetGroupAsync(groupId, cancellationToken);
+            if (CurrentUserId is not { } userId)
+                return Unauthorized();
+
+            var result = await groupChatService.GetGroupAsync(userId, groupId, cancellationToken);
             return result.Match(Ok, Problem);
         }
 

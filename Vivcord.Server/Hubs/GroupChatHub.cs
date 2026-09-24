@@ -1,3 +1,4 @@
+using ErrorOr;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Vivcord.Server.DTO;
@@ -28,12 +29,21 @@ namespace Vivcord.Server.Hubs
             await base.OnConnectedAsync();
         }
 
-        public async Task JoinGroup(int groupId)
+        public async Task<ErrorOr<Success>> JoinGroup(int groupId)
         {
+            var userId = Context.UserIdentifier;
+            if (userId is null || !Guid.TryParse(userId, out var userGuid))
+                return Error.Unauthorized(description: "Unauthorized");
+
+            var isMember = await groupChatService.IsMemberAsync(userGuid, groupId);
+            if (!isMember)
+                return Error.Forbidden(description: "You are not a member of this group");
+
             await Groups.AddToGroupAsync(Context.ConnectionId, groupId.ToString());
+            return Result.Success;
         }
 
-        public async Task<int> SendMessage(SendGroupMessageDto dto)
+        public async Task<ErrorOr<int>> SendMessage(SendGroupMessageDto dto)
         {
             var senderId = Context.UserIdentifier!;
             var senderGuid = Guid.Parse(senderId);
@@ -50,9 +60,14 @@ namespace Vivcord.Server.Hubs
                 AttachmentType = dto.AttachmentType
             };
 
-            var savedMessage = await messageSendingService.SendGroupMessageAsync(
+            var sendResult = await messageSendingService.SendGroupMessageAsync(
                 messageDto,
                 Context.ConnectionAborted);
+
+            if (sendResult.IsError)
+                return sendResult.Errors;
+
+            var savedMessage = sendResult.Value;
 
             await Clients.Group(dto.GroupId.ToString()).SendAsync(
                 "ReceiveMessage",
