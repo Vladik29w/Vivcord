@@ -12,9 +12,9 @@ namespace Vivcord.Server.Models
         public required override string UserName { get; set; }
         public string DisplayName { get; set; } = string.Empty;
         public string? ProfilePictureUrl { get; set; }
-        public ICollection<AppUserFriend> Friends { get; set; } = new List<AppUserFriend>();
-        public ICollection<GroupChatMember> GroupMemberships { get; set; } = new List<GroupChatMember>();
-        public ICollection<GroupChat> AdminiedGroups { get; set; } = new List<GroupChat>();
+        public ICollection<AppUserFriend> Friends { get; } = new List<AppUserFriend>();
+        public ICollection<GroupChatMember> GroupMemberships { get; } = new List<GroupChatMember>();
+        public ICollection<GroupChat> AdminiedGroups { get; } = new List<GroupChat>();
     }
     public class AppUserFriend
     {

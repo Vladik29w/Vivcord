@@ -189,4 +189,41 @@ public class MessageSendingServiceTests
         Assert.Equal(target,  all[1].Target);
         Assert.Equal("Second", all[1].Text);
     }
+
+    [Fact]
+    public async Task SendPrivateMessageAsync_Populates_SenderAvatarUrl_When_User_Exists()
+    {
+        // Arrange
+        await using var db = CreateDbContext();
+        var service = CreateService(db);
+
+        var senderId = Guid.NewGuid();
+        var user = new Vivcord.Server.Models.AppUser
+        {
+            Id = senderId,
+            UserName = "alice",
+            DisplayName = "Alice",
+            ProfilePictureUrl = "https://example.com/avatar.png"
+        };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var dto = new PrivateMessageDto
+        {
+            Id = 0,
+            SenderId = senderId,
+            SenderName = "Alice",
+            TargetUserId = Guid.NewGuid(),
+            Text = "Hello with avatar!",
+            AttachmentUrl = null,
+            AttachmentType = null
+        };
+
+        // Act
+        var result = await service.SendPrivateMessageAsync(dto);
+
+        // Assert
+        Assert.Equal("https://example.com/avatar.png", result.SenderAvatarUrl);
+        Assert.Equal("Alice", result.SenderName);
+    }
 }

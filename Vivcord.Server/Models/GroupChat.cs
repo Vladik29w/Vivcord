@@ -9,7 +9,7 @@ namespace Vivcord.Server.Models
 
         // Navigation properties
         public AppUser Admin { get; set; } = null!;
-        public ICollection<GroupChatMember> Members { get; set; } = new List<GroupChatMember>();
-        public ICollection<GroupMessage> Messages { get; set; } = new List<GroupMessage>();
+        public ICollection<GroupChatMember> Members { get; } = new List<GroupChatMember>();
+        public ICollection<GroupMessage> Messages { get; } = new List<GroupMessage>();
     }
 }

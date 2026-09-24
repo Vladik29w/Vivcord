@@ -262,4 +262,41 @@ public class GroupMessagingTests
         Assert.Equal(1, group1Messages);
         Assert.Equal(1, group2Messages);
     }
+
+    [Fact]
+    public async Task SendGroupMessageAsync_Populates_SenderAvatarUrl_When_User_Exists()
+    {
+        // Arrange
+        await using var db = CreateDbContext();
+        var service = CreateService(db);
+
+        var senderId = Guid.NewGuid();
+        var user = new Vivcord.Server.Models.AppUser
+        {
+            Id = senderId,
+            UserName = "bob",
+            DisplayName = "Bob",
+            ProfilePictureUrl = "https://example.com/bob-avatar.png"
+        };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var dto = new GroupMessageDto
+        {
+            Id = 0,
+            SenderId = senderId,
+            SenderName = "Bob",
+            GroupId = 10,
+            Text = "Group message with avatar",
+            AttachmentUrl = null,
+            AttachmentType = null
+        };
+
+        // Act
+        var result = await service.SendGroupMessageAsync(dto);
+
+        // Assert
+        Assert.Equal("https://example.com/bob-avatar.png", result.SenderAvatarUrl);
+        Assert.Equal("Bob", result.SenderName);
+    }
 }
