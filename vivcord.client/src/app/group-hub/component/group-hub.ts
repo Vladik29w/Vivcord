@@ -91,8 +91,7 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     return map;
   });
   public readonly membersCount = computed(() => {
-    const info = this.groupInfo();
-    return info?.members?.length ?? info?.memberIds?.length ?? 0;
+    return this.groupInfo()?.members?.length ?? 0;
   });
 
   constructor() {
@@ -119,7 +118,10 @@ export class GroupHubComponent implements OnInit, OnDestroy {
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: group => this.groupInfo.set(group),
-          error: err => console.error('[GroupHubComponent] Failed to load group info:', err),
+          error: err => {
+            console.error('[GroupHubComponent] Failed to load group info:', err);
+            // TODO: redirect here
+          },
         });
     });
   }

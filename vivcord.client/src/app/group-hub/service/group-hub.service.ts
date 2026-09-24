@@ -17,7 +17,10 @@ export class GroupHubService extends MessagingService {
   }
 
   public async joinGroup(groupId: number): Promise<void> {
-    return this.invokeHub<void>('JoinGroup', groupId);
+    const res = await this.invokeHub<any>('JoinGroup', groupId);
+    if (res?.isError) {
+      throw new Error(res.firstError?.description || 'Failed to join group');
+    }
   }
 
   /**
@@ -31,12 +34,18 @@ export class GroupHubService extends MessagingService {
     blobName?: string,
     attachmentType?: 'image' | 'video'
   ): Promise<number> {
-    return this.invokeHub<number>('SendMessage', {
+    const res = await this.invokeHub<any>('SendMessage', {
       groupId: Number(groupId),
       text,
       attachmentUrl: blobName ?? null,
       attachmentType: attachmentType ?? null,
     });
+
+    if (res?.isError) {
+      throw new Error(res.firstError?.description || 'Failed to send message');
+    }
+
+    return typeof res === 'number' ? res : (res?.value ?? 0);
   }
 
   public loadGroupHistory(groupId: number): Observable<MessageDTO[]> {
