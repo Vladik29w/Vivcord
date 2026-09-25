@@ -50,10 +50,9 @@ export class GroupManagementService {
   }
 
   public removeMember(groupId: number, userName: string): Observable<void> {
-    const params = new HttpParams().set('username', userName);
     return this._http.delete<void>(
-      `${this._apiUrl}/remove-member/${groupId}`,
-      { params, withCredentials: true }
+      `${this._apiUrl}/remove-member/${groupId}?username=${encodeURIComponent(userName)}`,
+      { withCredentials: true }
     );
   }
 }
