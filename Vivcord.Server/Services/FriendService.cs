@@ -4,20 +4,19 @@ using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Models;
 
-namespace Vivcord.Server.Services
+namespace Vivcord.Server.Services //TODO: add tests for this service
 {
     public interface IFriendService
     {
         Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId, CancellationToken cancellationToken = default);
         Task<ErrorOr<FriendDTO>> AddToFriendList(Guid ownerId, string userNameToAdd, CancellationToken cancellationToken = default);
-        Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToAdd, CancellationToken cancellationToken = default);
+        Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove, CancellationToken cancellationToken = default);
     }
     public class FriendService(MainDbContext dbContext) : IFriendService
     {
         public async Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId, CancellationToken cancellationToken = default)
         {
             var friends = await dbContext.UserFriends
-             .AsNoTracking()
              .Where(uf => uf.UserId == ownerId)
              .Select(uf => new FriendDTO(uf.FriendId, uf.Friend.UserName!, uf.Friend.DisplayName, uf.Friend.ProfilePictureUrl))
              .ToListAsync(cancellationToken);
@@ -32,12 +31,6 @@ namespace Vivcord.Server.Services
             if (friend.Id == ownerId)
                 return Error.Conflict(description: "You can't add yourself");
 
-            var alreadyFriends = await dbContext.UserFriends
-                .AnyAsync(uf => uf.UserId == ownerId && uf.FriendId == friend.Id, cancellationToken);
-
-            if (alreadyFriends)
-                return Error.Conflict(description: "Already in friend list");
-
             var newFriendship = new AppUserFriend
             {
                 UserId = ownerId,
@@ -45,26 +38,28 @@ namespace Vivcord.Server.Services
             };
 
             dbContext.UserFriends.Add(newFriendship);
-            await dbContext.SaveChangesAsync(cancellationToken);
+
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                return Error.Conflict(description: "Already in friend list");
+            }
 
             return new FriendDTO(friend.Id, friend.UserName!, friend.DisplayName, friend.ProfilePictureUrl);
         }
-        public async Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove, CancellationToken cancellationToken = default)
-        {
-            var friend = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == userNameToRemove, cancellationToken);
-            if (friend == null)
-                return Error.NotFound(description: $"User {userNameToRemove} not found");
+       public async Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove, CancellationToken cancellationToken = default)
+       {
+            var deletedCount = await dbContext.UserFriends
+                .Where(uf => uf.UserId == ownerId && uf.Friend.UserName == userNameToRemove)
+                .ExecuteDeleteAsync(cancellationToken);
 
-            var friendship = await dbContext.UserFriends
-                .FirstOrDefaultAsync(uf => uf.UserId == ownerId && uf.FriendId == friend.Id, cancellationToken);
-
-            if (friendship == null)
-                return Error.NotFound(description: "This user is not in your friend list");
-
-            dbContext.UserFriends.Remove(friendship);
-            await dbContext.SaveChangesAsync(cancellationToken);
+            if (deletedCount == 0)
+                return Error.NotFound(description: "User not found or not in your friend list");
 
             return Result.Success;
-        }
+       }
     }
 }
