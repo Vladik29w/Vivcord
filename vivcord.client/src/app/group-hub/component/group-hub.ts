@@ -120,7 +120,7 @@ export class GroupHubComponent implements OnInit, OnDestroy {
           next: group => this.groupInfo.set(group),
           error: err => {
             console.error('[GroupHubComponent] Failed to load group info:', err);
-            // TODO: redirect here
+            this.router.navigate(['/direct-messages']);
           },
         });
     });

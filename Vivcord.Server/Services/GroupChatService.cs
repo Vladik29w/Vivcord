@@ -207,7 +207,7 @@ namespace Vivcord.Server.Services
             return groups.AsReadOnly();
         }
 
-        public async Task<bool> IsMemberAsync(Guid userId, int groupId, CancellationToken cancellationToken = default)
+        public async Task<bool> IsMemberAsync(Guid userId, int groupId, CancellationToken cancellationToken = default)//костиль ?
         {
             return await dbContext.GroupChatMembers
                 .AnyAsync(m => m.GroupChatId == groupId && m.UserId == userId, cancellationToken);

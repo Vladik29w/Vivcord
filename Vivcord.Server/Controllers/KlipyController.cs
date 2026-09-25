@@ -10,9 +10,9 @@ namespace Vivcord.Server.Controllers
     public class KlipyController(IKlipyService klipyService) : ApiMainController
     {
         [HttpGet("trending")]
-        public async Task<IActionResult> GetTrendingGifs()
+        public async Task<IActionResult> GetTrendingGifs(CancellationToken cancellationToken)
         {
-            var result = await klipyService.GetTrendingGifs();
+            var result = await klipyService.GetTrendingGifs(cancellationToken);
             return result.Match(
                 gifs => Ok(gifs),
                 errors => Problem(errors)
@@ -20,9 +20,9 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpGet("search")]
-        public async Task<IActionResult> SearchGifs([FromQuery] string query)
+        public async Task<IActionResult> SearchGifs([FromQuery] string query, CancellationToken cancellationToken)
         {
-            var result = await klipyService.SearchGifs(query);
+            var result = await klipyService.SearchGifs(query, cancellationToken);
             return result.Match(
                 gifs => Ok(gifs),
                 errors => Problem(errors)
