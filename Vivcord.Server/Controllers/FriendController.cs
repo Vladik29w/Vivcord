@@ -14,38 +14,27 @@ namespace Vivcord.Server.Controllers
         [HttpGet("list")]
         public async Task<IActionResult> GetFriendList(CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
-            var result = await friendService.GetFriendList(userId, cancellationToken);
+            var result = await friendService.GetFriendList(CurrentUserId!.Value, cancellationToken);
             return result.Match(Ok, Problem);
         }
 
         [HttpPost("add")]
-        public async Task<IActionResult> AddToFriendList([FromBody] AddFriendRequest? request, [FromQuery] string? userNameToAdd, CancellationToken cancellationToken)
+        public async Task<IActionResult> AddToFriendList([FromBody] AddFriendRequest request, CancellationToken cancellationToken)
         {
-            var targetUsername = request?.Username ?? userNameToAdd;
-            if (string.IsNullOrWhiteSpace(targetUsername))
+            if (string.IsNullOrWhiteSpace(request.Username))
                 return Problem(Error.Validation("UsernameRequired", "Username is required."));
 
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
-            var result = await friendService.AddToFriendList(userId, targetUsername, cancellationToken);
+            var result = await friendService.AddToFriendList(CurrentUserId!.Value, request.Username, cancellationToken);
             return result.Match(Ok, Problem);
         }
 
-        [HttpDelete("remove")]
-        public async Task<IActionResult> RemoveFromFriendList([FromBody] RemoveFriendRequest? request, [FromQuery] string? userNameToRemove, CancellationToken cancellationToken)
+        [HttpDelete("remove/{username}")]
+        public async Task<IActionResult> RemoveFromFriendList([FromRoute] string username, CancellationToken cancellationToken)
         {
-            var targetUsername = request?.Username ?? userNameToRemove;
-            if (string.IsNullOrWhiteSpace(targetUsername))
+            if (string.IsNullOrWhiteSpace(username))
                 return Problem(Error.Validation("UsernameRequired", "Username is required."));
 
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
-            var result = await friendService.RemoveFromFriendList(userId, targetUsername, cancellationToken);
+            var result = await friendService.RemoveFromFriendList(CurrentUserId!.Value, username, cancellationToken);
             return result.Match(_ => Ok(), Problem);
         }
     }

@@ -6,8 +6,5 @@ namespace Vivcord.Server.DTO
         string? DisplayName = null,
         string? ProfilePictureUrl = null
     );
-
     public record AddFriendRequest(string Username);
-
-    public record RemoveFriendRequest(string Username);
 }
