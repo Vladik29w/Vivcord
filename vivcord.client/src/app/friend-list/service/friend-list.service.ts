@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '@environments/environment';
 import { Friend } from '../dto/friend-list.dto';
@@ -16,13 +16,11 @@ export class FriendListService {
     return this.httpClient.get<Friend[]>(`${this.apiUrl}/list`);
   }
 
-  addFriend(userNameToAdd: string): Observable<Friend> {
-    const params = new HttpParams().set('userNameToAdd', userNameToAdd);
-    return this.httpClient.post<Friend>(`${this.apiUrl}/add`, {}, { params });
+  addFriend(username: string): Observable<Friend> {
+    return this.httpClient.post<Friend>(`${this.apiUrl}/add`, { username });
   }
 
-  removeFromFriendList(userNameToRemove: string): Observable<void> {
-    const params = new HttpParams().set('userNameToRemove', userNameToRemove);
-    return this.httpClient.delete<void>(`${this.apiUrl}/remove`, { params });
+  removeFromFriendList(username: string): Observable<void> {
+    return this.httpClient.delete<void>(`${this.apiUrl}/remove/${encodeURIComponent(username)}`);
   }
 }
