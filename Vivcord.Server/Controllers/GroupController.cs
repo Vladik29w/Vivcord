@@ -32,44 +32,35 @@ namespace Vivcord.Server.Controllers
         }
 
         [HttpPost("add-member/{groupId}")]
-        public async Task<IActionResult> AddMember(int groupId, [FromBody] AddGroupMemberRequest? request, [FromQuery] string? username, CancellationToken cancellationToken)
+        public async Task<IActionResult> AddMember(int groupId, [FromBody] AddGroupMemberRequest request, CancellationToken cancellationToken)
         {
-            var targetUsername = request?.Username ?? username;
-            if (string.IsNullOrWhiteSpace(targetUsername))
-                return Problem(Error.Validation("UsernameRequired", "Username is required."));
-
             if (CurrentUserId is not { } userId)
                 return Unauthorized();
 
-            var result = await groupChatService.AddMemberAsync(userId, groupId, targetUsername, cancellationToken);
+            var result = await groupChatService.AddMemberAsync(userId, groupId, request.Username, cancellationToken);
             return result.Match(_ => Ok(), Problem);
         }
 
         [HttpDelete("remove-member/{groupId}")]
-        public async Task<IActionResult> RemoveMember(int groupId, [FromBody] AddGroupMemberRequest? request, [FromQuery] string? username, CancellationToken cancellationToken)
+        public async Task<IActionResult> RemoveMember(int groupId, [FromQuery] string username, CancellationToken cancellationToken)
         {
-            var targetUsername = request?.Username ?? username;
-            if (string.IsNullOrWhiteSpace(targetUsername))
+            if (string.IsNullOrWhiteSpace(username))
                 return Problem(Error.Validation("UsernameRequired", "Username is required."));
 
             if (CurrentUserId is not { } userId)
                 return Unauthorized();
 
-            var result = await groupChatService.RemoveMemberAsync(userId, groupId, targetUsername, cancellationToken);
+            var result = await groupChatService.RemoveMemberAsync(userId, groupId, username, cancellationToken);
             return result.Match(_ => Ok(), Problem);
         }
 
         [HttpPost("assign-admin/{groupId}")]
-        public async Task<IActionResult> AssignAdmin(int groupId, [FromBody] AssignGroupAdminRequest? request, [FromQuery] string? newAdminUsername, CancellationToken cancellationToken)
+        public async Task<IActionResult> AssignAdmin(int groupId, [FromBody] AssignGroupAdminRequest request, CancellationToken cancellationToken)
         {
-            var targetAdmin = request?.NewAdminUsername ?? newAdminUsername;
-            if (string.IsNullOrWhiteSpace(targetAdmin))
-                return Problem(Error.Validation("UsernameRequired", "New admin username is required."));
-
             if (CurrentUserId is not { } userId)
                 return Unauthorized();
 
-            var result = await groupChatService.AssignAdminAsync(userId, groupId, targetAdmin, cancellationToken);
+            var result = await groupChatService.AssignAdminAsync(userId, groupId, request.NewAdminUsername, cancellationToken);
             return result.Match(_ => Ok(), Problem);
         }
 

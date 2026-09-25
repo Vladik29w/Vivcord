@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '@environments/environment';
 import { GroupChatDTO, CreateGroupChatDTO } from '../dto/group-hub.dto';
@@ -42,11 +42,10 @@ export class GroupManagementService {
   }
 
   public addMember(groupId: number, userName: string): Observable<void> {
-    const params = new HttpParams().set('username', userName);
     return this._http.post<void>(
       `${this._apiUrl}/add-member/${groupId}`,
-      {},
-      { params, withCredentials: true }
+      { username: userName },
+      { withCredentials: true }
     );
   }
 
