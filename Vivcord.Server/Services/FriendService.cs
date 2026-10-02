@@ -4,7 +4,7 @@ using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Models;
 
-namespace Vivcord.Server.Services //TODO: add tests for this service
+namespace Vivcord.Server.Services
 {
     public interface IFriendService
     {
