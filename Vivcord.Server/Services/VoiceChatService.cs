@@ -9,8 +9,8 @@ namespace Vivcord.Server.Services
     public interface IVoiceChatService
     {
         string GenerateToken(string roomId, string identity, string displayName, string? metadata = null);
-        Task<ErrorOr<VoiceCallResponseDTO>> InitiatePrivateCallAsync(Guid callerId, string? callerDisplayName, PrivateCallRequestDTO request, CancellationToken cancellationToken = default);
-        Task<ErrorOr<VoiceCallResponseDTO>> InitiateGroupCallAsync(Guid callerId, string? callerDisplayName, GroupCallRequestDTO request, CancellationToken cancellationToken = default);
+        Task<ErrorOr<VoiceCallResponseDTO>> InitiatePrivateCallAsync(Guid callerId, string? callerDisplayName, string targetUsername, CancellationToken cancellationToken = default);
+        Task<ErrorOr<VoiceCallResponseDTO>> InitiateGroupCallAsync(Guid callerId, string? callerDisplayName, int groupId, CancellationToken cancellationToken = default);
     }
 
     public class VoiceChatService(IConfiguration config, MainDbContext dbContext) : IVoiceChatService
@@ -39,20 +39,18 @@ namespace Vivcord.Server.Services
         public async Task<ErrorOr<VoiceCallResponseDTO>> InitiatePrivateCallAsync(
             Guid callerId,
             string? callerDisplayName,
-            PrivateCallRequestDTO request,
+            string targetUsername,
             CancellationToken cancellationToken = default)
         {
-            var users = await dbContext.Users
-                .AsNoTracking()
-                .Where(u => u.UserName == request.TargetUsername || u.Id == callerId)
-                .Select(u => new { u.Id, u.UserName, u.ProfilePictureUrl })
-                .ToListAsync(cancellationToken);
+            var target = await dbContext.Users
+                .Where(u => u.UserName == targetUsername)
+                .Select(u => new { u.Id })
+                .FirstOrDefaultAsync(cancellationToken);
 
-            var target = users.FirstOrDefault(u => string.Equals(u.UserName, request.TargetUsername, StringComparison.OrdinalIgnoreCase));
             if (target == null)
-                return Error.NotFound("UserNotFound", $"User '{request.TargetUsername}' not found.");
+                return Error.NotFound("UserNotFound", $"User '{targetUsername}' not found.");
 
-            if (callerId == target.Id)
+            if (target.Id == callerId)
                 return Error.Conflict("InvalidCall", "You cannot call yourself.");
 
             var areMutualFriends = await dbContext.UserFriends
@@ -67,26 +65,29 @@ namespace Vivcord.Server.Services
             var identity = callerId.ToString();
             var displayName = string.IsNullOrWhiteSpace(callerDisplayName) ? identity : callerDisplayName;
 
-            var caller = users.FirstOrDefault(u => u.Id == callerId);
+            var profilePictureUrl = await dbContext.Users
+                .Where(u => u.Id == callerId)
+                .Select(u => u.ProfilePictureUrl)
+                .FirstOrDefaultAsync(cancellationToken);
 
-            var token = GenerateToken(roomId, identity, displayName, caller?.ProfilePictureUrl);
+            var token = GenerateToken(roomId, identity, displayName, profilePictureUrl);
             return new VoiceCallResponseDTO(roomId, token);
         }
 
         public async Task<ErrorOr<VoiceCallResponseDTO>> InitiateGroupCallAsync(
             Guid callerId,
             string? callerDisplayName,
-            GroupCallRequestDTO request,
+            int groupId,
             CancellationToken cancellationToken = default)
         {
             var group = await dbContext.GroupChats
-                .FirstOrDefaultAsync(g => g.id == request.GroupId, cancellationToken);
+                .FirstOrDefaultAsync(g => g.id == groupId, cancellationToken);
 
             if (group == null)
                 return Error.NotFound("GroupNotFound", "Group not found.");
 
             var isMember = await dbContext.GroupChatMembers
-                .AnyAsync(gcm => gcm.GroupChatId == request.GroupId && gcm.UserId == callerId, cancellationToken);
+                .AnyAsync(gcm => gcm.GroupChatId == groupId && gcm.UserId == callerId, cancellationToken);
 
             if (!isMember)
                 return Error.Forbidden("NotMember", "You are not a member of this group.");

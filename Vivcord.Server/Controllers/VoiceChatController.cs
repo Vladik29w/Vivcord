@@ -19,7 +19,7 @@ namespace Vivcord.Server.Controllers
             if (CurrentUserId is not { } callerId)
                 return Unauthorized();
 
-            var result = await voiceChatService.InitiatePrivateCallAsync(callerId, CurrentUserDisplayName, request, cancellationToken);
+            var result = await voiceChatService.InitiatePrivateCallAsync(callerId, CurrentUserDisplayName, request.TargetUsername, cancellationToken);
             return result.Match(Ok, Problem);
         }
 
@@ -31,7 +31,7 @@ namespace Vivcord.Server.Controllers
             if (CurrentUserId is not { } callerId)
                 return Unauthorized();
 
-            var result = await voiceChatService.InitiateGroupCallAsync(callerId, CurrentUserDisplayName, request, cancellationToken);
+            var result = await voiceChatService.InitiateGroupCallAsync(callerId, CurrentUserDisplayName, request.GroupId, cancellationToken);
             return result.Match(Ok, Problem);
         }
     }
