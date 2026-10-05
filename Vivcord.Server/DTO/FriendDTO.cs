@@ -4,7 +4,8 @@ namespace Vivcord.Server.DTO
         Guid Id,
         string UserName,
         string? DisplayName = null,
-        string? ProfilePictureUrl = null
+        string? ProfilePictureUrl = null,
+        bool IsOnline = false
     );
     public record AddFriendRequest(string Username);
 }

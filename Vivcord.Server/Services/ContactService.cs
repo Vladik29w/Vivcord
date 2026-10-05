@@ -9,27 +9,35 @@ namespace Vivcord.Server.Services
     {
         Task<ErrorOr<FindUserDTO>> GetProfileByUsername(string username);
     }
-    public class ContactService(MainDbContext dbContext) : IContactService
+    public class ContactService(MainDbContext dbContext, IUserStatusService userStatusService) : IContactService
     {
         public async Task<ErrorOr<FindUserDTO>> GetProfileByUsername(string username)
         {
             if (string.IsNullOrWhiteSpace(username))
                 return Error.Validation("InvalidUsername", "Username is required");
 
-            var res = await dbContext.Users
+            var user = await dbContext.Users
                 .Where(u => u.UserName == username)
-                .Select(u => new FindUserDTO
+                .Select(u => new
                 {
-                    Id = u.Id.ToString(),
-                    Name = u.UserName!,
+                    u.Id,
+                    UserName = u.UserName!,
                     DisplayName = !string.IsNullOrWhiteSpace(u.DisplayName) ? u.DisplayName : u.UserName,
-                    ProfilePictureUrl = u.ProfilePictureUrl
+                    u.ProfilePictureUrl
                 })
                 .FirstOrDefaultAsync();
-            if (res == null)
+
+            if (user == null)
                 return Error.NotFound(description: "User not found");
 
-            return res;
+            return new FindUserDTO
+            {
+                Id = user.Id.ToString(),
+                Name = user.UserName,
+                DisplayName = user.DisplayName,
+                ProfilePictureUrl = user.ProfilePictureUrl,
+                IsOnline = userStatusService.IsUserActive(user.Id)
+            };
         }
     }
 }

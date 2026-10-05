@@ -20,6 +20,7 @@ namespace Vivcord.Server.DTO
         public required string Name { get; init; }
         public string? DisplayName { get; init; }
         public string? ProfilePictureUrl { get; init; }
+        public bool IsOnline { get; init; } = false;
         public string UserName => Name;
         public string UserId => Id;
     }

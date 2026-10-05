@@ -12,14 +12,29 @@ namespace Vivcord.Server.Services
         Task<ErrorOr<FriendDTO>> AddToFriendList(Guid ownerId, string userNameToAdd, CancellationToken cancellationToken = default);
         Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove, CancellationToken cancellationToken = default);
     }
-    public class FriendService(MainDbContext dbContext) : IFriendService
+    public class FriendService(MainDbContext dbContext, IUserStatusService? userStatusService = null) : IFriendService
     {
         public async Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId, CancellationToken cancellationToken = default)
         {
-            var friends = await dbContext.UserFriends
-             .Where(uf => uf.UserId == ownerId)
-             .Select(uf => new FriendDTO(uf.FriendId, uf.Friend.UserName!, uf.Friend.DisplayName, uf.Friend.ProfilePictureUrl))
-             .ToListAsync(cancellationToken);
+            var friendsData = await dbContext.UserFriends
+                .Where(uf => uf.UserId == ownerId)
+                .Select(uf => new
+                {
+                    uf.FriendId,
+                    UserName = uf.Friend.UserName!,
+                    uf.Friend.DisplayName,
+                    uf.Friend.ProfilePictureUrl
+                })
+                .ToListAsync(cancellationToken);
+
+            var friends = friendsData
+                .Select(f => new FriendDTO(
+                    f.FriendId,
+                    f.UserName,
+                    f.DisplayName,
+                    f.ProfilePictureUrl,
+                    userStatusService?.IsUserActive(f.FriendId) ?? false))
+                .ToList();
 
             return friends;
         }
@@ -48,7 +63,12 @@ namespace Vivcord.Server.Services
                 return Error.Conflict(description: "Already in friend list");
             }
 
-            return new FriendDTO(friend.Id, friend.UserName!, friend.DisplayName, friend.ProfilePictureUrl);
+            return new FriendDTO(
+                friend.Id,
+                friend.UserName!,
+                friend.DisplayName,
+                friend.ProfilePictureUrl,
+                userStatusService?.IsUserActive(friend.Id) ?? false);
         }
        public async Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove, CancellationToken cancellationToken = default)
        {

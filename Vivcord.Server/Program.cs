@@ -23,6 +23,7 @@ builder.Services.AddOptions<JwtOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
+//scoped
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContactService, ContactService>();
@@ -32,9 +33,11 @@ builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddScoped<IVoiceChatService, VoiceChatService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IGroupChatService, GroupChatService>();
-builder.Services.AddHttpClient<IKlipyService, KlipyService>();
-
-builder.Services.AddVivcordAzureBlob();
+//singelton
+builder.Services.AddSingleton<IUserStatusService, UserStatusService>();
+builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
+//http client
+builder.Services.AddHttpClient<IKlipyService, KlipyService>(); builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 
 var signalRBuilder = builder.Services.AddSignalR();
 var azureSignalRConnectionString = builder.Configuration.GetConnectionString("AzureSignalR");

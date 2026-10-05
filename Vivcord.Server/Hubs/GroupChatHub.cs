@@ -13,17 +13,10 @@ namespace Vivcord.Server.Hubs
     {
         public override async Task OnConnectedAsync()
         {
-            var userId = Context.UserIdentifier;
-            if (userId is not null && Guid.TryParse(userId, out var userGuid))
+            var userId = Context.User.GetUserId();
+            if (userId is not null)
             {
-                var groupsResult = await groupChatService.GetUserGroupsAsync(userGuid);
-                if (!groupsResult.IsError)
-                {
-                    foreach (var group in groupsResult.Value)
-                    {
-                        await Groups.AddToGroupAsync(Context.ConnectionId, group.Id.ToString());
-                    }
-                }
+                await CheckUserGroupMembership(userId.Value);
             }
 
             await base.OnConnectedAsync();
@@ -82,6 +75,17 @@ namespace Vivcord.Server.Hubs
                 dto.GroupId);
 
             return savedMessage.Id;
+        }
+        private async Task CheckUserGroupMembership(Guid userId)
+        {
+            var groupsResult = await groupChatService.GetUserGroupsAsync(userId);
+            if (!groupsResult.IsError)
+            {
+                foreach (var group in groupsResult.Value)
+                {
+                    await Groups.AddToGroupAsync(Context.ConnectionId, group.Id.ToString());
+                }
+            }
         }
     }
 }
