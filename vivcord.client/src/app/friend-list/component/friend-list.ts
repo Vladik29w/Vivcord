@@ -10,6 +10,7 @@ import { AccountService } from '@account/service/account.service';
 import { LiveKitService } from '../../voice-chat/service/live-kit.service';
 import { VoiceChatComponent } from '../../voice-chat/component/voice-chat/voice-chat';
 import { ToastService } from '../../shared/toast/service/toast.service';
+import { PrivateHubService } from '../../private-hub/service/private-hub.service';
 
 @Component({
   selector: 'app-friend-list',
@@ -21,6 +22,7 @@ import { ToastService } from '../../shared/toast/service/toast.service';
 })
 export class FriendListComponent implements OnInit {
   private readonly friendService = inject(FriendListService);
+  private readonly privateHubService = inject(PrivateHubService);
   private readonly groupManagement = inject(GroupManagementService);
   private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
@@ -48,6 +50,8 @@ export class FriendListComponent implements OnInit {
   public readonly userProfilePictureUrl = computed(() => this.accountService.currentUser()?.profilePictureUrl ?? null);
 
   ngOnInit(): void {
+    this.privateHubService.connectToHub();
+
     this.router.events
       .pipe(
         filter(event => event instanceof NavigationEnd),
@@ -62,6 +66,18 @@ export class FriendListComponent implements OnInit {
       .subscribe({
         next: (friends) => this.friendList.set(friends),
         error: (err) => console.error('failed to load friends', err)
+      });
+
+    this.privateHubService.userStatusChanged$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ userId, isOnline }) => {
+        this.friendList.update(friends =>
+          friends.map(f =>
+            f.id.toLowerCase() === userId.toLowerCase()
+              ? { ...f, isOnline }
+              : f
+          )
+        );
       });
 
     this.groupManagement.getMyGroups()

@@ -12,11 +12,13 @@
             <span>{{ targetAvatarInitials() }}</span>
           }
         </div>
-        <span class="header-status-dot online"></span>
+        <span class="header-status-dot" [class.online]="isTargetOnline()" [class.offline]="!isTargetOnline()"></span>
       </div>
       <div class="header-user-info">
         <h2 class="header-user-name">{{ targetDisplayName() || currentUsername() }}</h2>
-        <span class="header-user-status">Online</span>
+        <span class="header-user-status" [class.offline]="!isTargetOnline()">
+          {{ isTargetOnline() ? 'Online' : 'Offline' }}
+        </span>
       </div>
     </div>
 

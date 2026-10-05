@@ -12,11 +12,15 @@ export abstract class MessagingService {
   protected readonly _apiUrl = environment.apiUrl;
   private readonly _accountService = inject(AccountService);
 
-  private _hubConnection?: HubConnection;
+  protected _hubConnection?: HubConnection;
 
   public readonly messageReceived$ = new Subject<MessageDTO>();
 
   protected connectToHub(hubPath: string): void {
+    if (this._hubConnection && (this._hubConnection.state === HubConnectionState.Connected || this._hubConnection.state === HubConnectionState.Connecting)) {
+      return;
+    }
+
     this._hubConnection = new HubConnectionBuilder()
       .withUrl(`${environment.apiUrl}${hubPath}`, { withCredentials: true })
       .withAutomaticReconnect()

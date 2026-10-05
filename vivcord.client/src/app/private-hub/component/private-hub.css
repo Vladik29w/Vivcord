@@ -67,8 +67,16 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: var(--accent-success);
+  background-color: var(--text-muted);
   border: 2px solid var(--bg-app);
+}
+
+.header-status-dot.online {
+  background-color: var(--accent-success);
+}
+
+.header-status-dot.offline {
+  background-color: var(--text-muted);
 }
 
 .header-user-info {
@@ -86,6 +94,10 @@
   font-size: 11px;
   color: var(--accent-success);
   font-weight: 500;
+}
+
+.header-user-status.offline {
+  color: var(--text-muted);
 }
 
 .chat-header-actions {

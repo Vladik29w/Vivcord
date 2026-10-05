@@ -19,7 +19,7 @@ import { KlipyComponent } from '../../shared/messaging/klipy/component/klipy';
   styleUrl: './private-hub.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PrivateHubComponent implements OnInit, OnDestroy {
+export class PrivateHubComponent implements OnInit {
   @ViewChild('messagesViewport') private messagesViewport?: ElementRef<HTMLElement>;
 
   private readonly router = inject(Router);
@@ -46,6 +46,7 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
   public readonly targetUserId = signal<string | null>(null);
   public readonly targetDisplayName = signal<string | null>(null);
   public readonly targetProfilePictureUrl = signal<string | null>(null);
+  public readonly isTargetOnline = signal<boolean>(false);
   public readonly currentUsername = computed(() => this.usernameParam() ?? '');
   public readonly messages = signal<MessageDTO[]>([]);
   public readonly selectedFile = signal<File | null>(null);
@@ -83,6 +84,7 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
             this.targetUserId.set(targetId);
             this.targetDisplayName.set(profile.displayName || profile.userName);
             this.targetProfilePictureUrl.set(profile.profilePictureUrl ?? null);
+            this.isTargetOnline.set(profile.isOnline ?? false);
           }),
           switchMap(profile => this.chatService.loadChatHistory(profile.id || profile.userId || '')),
           takeUntilDestroyed(this.destroyRef)
@@ -100,10 +102,15 @@ export class PrivateHubComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.chatService.connectToHub();
     this.subscribeToIncomingMessages();
-  }
 
-  ngOnDestroy(): void {
-    this.chatService.disconnect();
+    this.chatService.userStatusChanged$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ userId, isOnline }) => {
+        const currentTargetId = this.targetUserId();
+        if (currentTargetId && currentTargetId.toLowerCase() === userId.toLowerCase()) {
+          this.isTargetOnline.set(isOnline);
+        }
+      });
   }
 
   public handleCallAction(): void {

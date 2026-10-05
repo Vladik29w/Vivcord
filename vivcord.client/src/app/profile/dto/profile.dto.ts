@@ -4,6 +4,7 @@ export interface UserProfileDTO {
   userName: string;
   displayName: string;
   profilePictureUrl: string | null;
+  isOnline?: boolean;
 }
 
 export interface UploadTokenResponse {

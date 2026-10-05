@@ -129,7 +129,7 @@
                   <span>{{ getInitials(friend.displayName || friend.userName) }}</span>
                 }
               </div>
-              <span class="status-dot online"></span>
+              <span class="status-dot" [class.online]="friend.isOnline" [class.offline]="!friend.isOnline"></span>
             </div>
 
             <div class="chat-item-details">

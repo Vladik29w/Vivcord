@@ -3,4 +3,5 @@ export interface Friend {
   userName: string;
   displayName?: string | null;
   profilePictureUrl?: string | null;
+  isOnline?: boolean;
 }

@@ -79,6 +79,10 @@
   background-color: var(--accent-success);
 }
 
+.status-dot.offline {
+  background-color: var(--text-muted);
+}
+
 .user-profile-info {
   display: flex;
   flex-direction: column;
