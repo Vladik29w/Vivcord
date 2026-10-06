@@ -1,8 +1,26 @@
-<div class="home-layout">
+<div class="home-layout" [class.is-resizing]="isResizing()">
   <div class="chat-area">
     <router-outlet></router-outlet>
   </div>
-  <div class="friend-list-area">
+
+  <!-- Dynamic Sidebar Resizer Splitter -->
+  <div
+    class="sidebar-resizer"
+    [class.active]="isResizing()"
+    (mousedown)="startResize($event)"
+    (touchstart)="startResizeTouch($event)"
+    (dblclick)="resetWidth()"
+    (keydown)="onResizerKeyDown($event)"
+    tabindex="0"
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="Зміна ширини бічної панелі чатів"
+    title="Перетягніть для зміни ширини, подвійний клік для скидання">
+    <div class="resizer-handle-line"></div>
+  </div>
+
+  <div class="friend-list-area" [style.width.px]="sidebarWidth()">
     <app-friend-list></app-friend-list>
   </div>
 </div>
+

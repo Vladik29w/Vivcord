@@ -10,6 +10,23 @@
   width: 100%;
   overflow: hidden;
   background-color: var(--bg-app);
+  position: relative;
+}
+
+.home-layout.is-resizing {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: col-resize;
+}
+
+.home-layout.is-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+  pointer-events: none !important;
+}
+
+.home-layout.is-resizing .sidebar-resizer {
+  pointer-events: auto !important;
 }
 
 .chat-area {
@@ -22,13 +39,66 @@
   background-color: var(--bg-app);
 }
 
+/* Sidebar Resizer Splitter */
+.sidebar-resizer {
+  width: 8px;
+  margin-left: -4px;
+  margin-right: -4px;
+  z-index: 20;
+  height: 100%;
+  cursor: col-resize;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  flex-shrink: 0;
+  outline: none;
+  background: transparent;
+  transition: background-color var(--transition-fast);
+}
+
+.sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -2px;
+  right: -2px;
+  z-index: 1;
+}
+
+.resizer-handle-line {
+  width: 2px;
+  height: 100%;
+  background-color: var(--border-subtle);
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast), width var(--transition-fast);
+  pointer-events: none;
+}
+
+.sidebar-resizer:hover .resizer-handle-line,
+.sidebar-resizer:focus-visible .resizer-handle-line,
+.sidebar-resizer.active .resizer-handle-line {
+  background-color: var(--accent-primary);
+  box-shadow: 0 0 8px oklch(0.585 0.233 var(--accent-hue) / 0.5);
+}
+
+.sidebar-resizer.active .resizer-handle-line {
+  width: 3px;
+}
+
+.sidebar-resizer:focus-visible {
+  outline: none;
+}
+
 .friend-list-area {
-  width: 300px;
-  max-width: 320px;
-  min-width: 260px;
+  min-width: 200px;
+  max-width: 650px;
   height: 100%;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   background-color: var(--bg-sidebar);
+  position: relative;
+  overflow: hidden;
 }

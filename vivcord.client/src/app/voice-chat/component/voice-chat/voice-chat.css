@@ -14,6 +14,8 @@
   flex-direction: column;
   gap: 10px;
   animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 @keyframes slideUp {
@@ -33,12 +35,17 @@
   justify-content: space-between;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   padding-bottom: 6px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .call-indicator {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .call-pulse-dot {
@@ -48,6 +55,7 @@
   border-radius: 50%;
   box-shadow: 0 0 8px var(--accent-success);
   animation: pulse 1.8s infinite;
+  flex-shrink: 0;
 }
 
 @keyframes pulse {
@@ -61,12 +69,16 @@
   color: var(--accent-success);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .btn-noise-filter {
@@ -78,6 +90,7 @@
   color: var(--text-muted);
   border: 1px solid rgba(255, 255, 255, 0.08);
   transition: all var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .btn-noise-filter.active {
@@ -94,6 +107,7 @@
   color: var(--accent-danger);
   border: 1px solid rgba(239, 68, 68, 0.3);
   transition: all var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .btn-end-call:hover {
@@ -107,6 +121,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
 
 .voice-participants-row {
@@ -115,6 +130,8 @@
   gap: 6px;
   overflow-x: auto;
   padding: 2px;
+  min-width: 0;
+  flex: 1;
 }
 
 .participant-avatar-wrapper {

@@ -2,6 +2,8 @@
   display: block;
   height: 100%;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sidebar-container {
@@ -9,9 +11,11 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
+  min-width: 0;
   background-color: var(--bg-sidebar);
   border-left: 1px solid var(--border-subtle);
   user-select: none;
+  overflow: hidden;
 }
 
 /* 1. Top Section: User Profile Bar */
@@ -19,11 +23,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 12px 14px;
   background: rgba(255, 255, 255, 0.02);
   border-bottom: 1px solid var(--border-subtle);
   cursor: pointer;
   transition: all var(--transition-fast);
+  min-width: 0;
+  flex-shrink: 0;
 }
 
 .user-profile-bar:hover {
@@ -33,8 +40,10 @@
 .user-profile-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   overflow: hidden;
+  min-width: 0;
+  flex: 1;
 }
 
 .avatar-wrapper {
@@ -43,8 +52,8 @@
 }
 
 .user-avatar-circle {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: var(--accent-gradient);
   display: flex;
@@ -55,6 +64,7 @@
   color: #ffffff;
   box-shadow: 0 2px 8px oklch(0.585 0.233 var(--accent-hue) / 0.3);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .avatar-img-circle {
@@ -87,6 +97,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
+  flex: 1;
 }
 
 .user-profile-name {
@@ -96,12 +108,16 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: block;
 }
 
 .user-profile-status {
   font-size: 11px;
   color: var(--accent-success);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-profile-action {
@@ -112,6 +128,7 @@
   padding: 6px;
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
+  flex-shrink: 0;
 }
 
 .user-profile-bar:hover .user-profile-action {
@@ -124,7 +141,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px 8px;
+  gap: 8px;
+  padding: 10px 12px 6px;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
 .nav-tabs {
@@ -133,14 +153,23 @@
   background: rgba(0, 0, 0, 0.2);
   padding: 3px;
   border-radius: var(--radius-sm);
+  flex: 1;
+  min-width: 0;
 }
 
 .nav-tab-btn {
   font-size: 12px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 5px 8px;
   border-radius: 4px;
   color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all var(--transition-fast);
 }
 
 .nav-tab-btn:hover {
@@ -157,6 +186,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .btn-icon-action {
@@ -166,6 +196,10 @@
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .btn-icon-action:hover {
@@ -178,8 +212,11 @@
 .quick-add-box {
   display: flex;
   gap: 6px;
-  padding: 6px 14px 10px;
+  padding: 6px 12px 10px;
   animation: slideDown 0.2s ease;
+  min-width: 0;
+  flex-shrink: 0;
+  align-items: center;
 }
 
 @keyframes slideDown {
@@ -189,6 +226,7 @@
 
 .quick-add-box input {
   flex: 1;
+  min-width: 0;
   padding: 6px 10px;
   font-size: 13px;
 }
@@ -200,6 +238,8 @@
   border-radius: var(--radius-md);
   font-size: 12px;
   font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .btn-submit-add:hover {
@@ -210,24 +250,33 @@
 .chat-list-scrollable {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 6px 10px;
+  min-height: 0;
+  min-width: 0;
+  scrollbar-gutter: stable;
 }
 
 .chat-items-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
+  min-width: 0;
 }
 
 .chat-list-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 8px 10px;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
   border: 1px solid transparent;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .chat-list-item:hover {
@@ -257,6 +306,7 @@
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .chat-item-avatar.group-avatar {
@@ -267,6 +317,10 @@
 .chat-item-details {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .chat-item-name {
@@ -291,6 +345,10 @@
   color: var(--text-muted);
   opacity: 0;
   transition: all var(--transition-fast);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chat-list-item:hover .btn-remove-chat {
@@ -323,4 +381,8 @@
   padding: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   background: rgba(10, 13, 20, 0.4);
+  flex-shrink: 0;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }

@@ -28,5 +28,23 @@ describe('HomeComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('should initialize with default sidebar width', () => {
+    expect(component.sidebarWidth()).toBe(300);
+    expect(component.isResizing()).toBe(false);
+  });
+
+  it('should render the resizer handle in DOM', () => {
+    const resizerEl = fixture.nativeElement.querySelector('.sidebar-resizer');
+    expect(resizerEl).toBeTruthy();
+    expect(resizerEl.getAttribute('role')).toBe('separator');
+  });
+
+  it('should reset sidebar width when resetWidth is called', () => {
+    component.sidebarWidth.set(450);
+    expect(component.sidebarWidth()).toBe(450);
+    component.resetWidth();
+    expect(component.sidebarWidth()).toBe(300);
+  });
 });
 
