@@ -61,7 +61,7 @@ export class Profile implements OnInit {
           console.error('[Profile] Failed to load user profile:', err);
           this.profile.set({
             userId: currentUser.id,
-            userName: (currentUser as any).userName || '',
+            userName: currentUser.userName || '',
             displayName: currentUser.displayName,
             profilePictureUrl: null,
           });

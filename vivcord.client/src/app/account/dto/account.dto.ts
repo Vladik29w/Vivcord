@@ -2,6 +2,7 @@ export interface UserDTO {
   id: string;
   email: string;
   displayName: string;
+  userName?: string;
   profilePictureUrl?: string | null;
   roles: string[];
 }

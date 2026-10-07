@@ -54,10 +54,10 @@ export class FriendListComponent implements OnInit {
 
     this.router.events
       .pipe(
-        filter(event => event instanceof NavigationEnd),
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe((event: any) => {
+      .subscribe((event) => {
         this.currentUrl.set(event.urlAfterRedirects || event.url);
       });
 

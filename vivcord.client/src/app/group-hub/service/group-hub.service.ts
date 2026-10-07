@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { MessagingService } from '../../shared/messaging/service/messaging.service';
 import { Observable } from 'rxjs';
 import { MessageDTO } from '../../shared/messaging/dto/message.dto';
+import { GroupChatDTO, HubResult } from '../dto/group-hub.dto';
 import { environment } from '@environments/environment';
 
 @Injectable({
@@ -17,7 +18,7 @@ export class GroupHubService extends MessagingService {
   }
 
   public async joinGroup(groupId: number): Promise<void> {
-    const res = await this.invokeHub<any>('JoinGroup', groupId);
+    const res = await this.invokeHub<HubResult<void>>('JoinGroup', groupId);
     if (res?.isError) {
       throw new Error(res.firstError?.description || 'Failed to join group');
     }
@@ -34,14 +35,14 @@ export class GroupHubService extends MessagingService {
     blobName?: string,
     attachmentType?: 'image' | 'video'
   ): Promise<number> {
-    const res = await this.invokeHub<any>('SendMessage', {
+    const res = await this.invokeHub<number | HubResult<number>>('SendMessage', {
       groupId: Number(groupId),
       text,
       attachmentUrl: blobName ?? null,
       attachmentType: attachmentType ?? null,
     });
 
-    if (res?.isError) {
+    if (typeof res === 'object' && res?.isError) {
       throw new Error(res.firstError?.description || 'Failed to send message');
     }
 

@@ -13,3 +13,16 @@ export interface GroupChatDTO {
 export interface CreateGroupChatDTO {
   name: string;
 }
+
+export interface HubError {
+  code?: string;
+  description?: string;
+  type?: number;
+}
+
+export interface HubResult<T = unknown> {
+  isError?: boolean;
+  firstError?: HubError;
+  errors?: HubError[];
+  value?: T;
+}

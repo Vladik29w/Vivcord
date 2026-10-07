@@ -135,7 +135,7 @@ export class LiveKitService {
           await track.stopProcessor();
           this.isNoiseFilterEnabled.set(false);
         } else {
-          let audioCtx = (track as any).audioContext;
+          let audioCtx = (track as LocalAudioTrack & { audioContext?: AudioContext }).audioContext;
           if (!audioCtx) {
             audioCtx = new AudioContext();
           }
