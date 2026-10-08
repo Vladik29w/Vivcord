@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Communication.Email" Version="1.1.0" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.30.0" />
     <PackageReference Include="ErrorOr" Version="2.1.1" />
     <PackageReference Include="Livekit.Server.Sdk.Dotnet" Version="1.2.3" />

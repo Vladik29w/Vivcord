@@ -32,6 +32,20 @@ namespace Vivcord.Server.Controllers
             );
         }
 
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordDTO request, CancellationToken ct)
+        {
+            var result = await accountService.ForgotPasswordEmail(request.Email, ct);
+            return result.Match(_ => Ok(), errors => Problem(errors));
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordDTO request, CancellationToken ct)
+        {
+            var result = await accountService.ResetPassword(request, ct);
+            return result.Match(_ => Ok(), errors => Problem(errors));
+        }
+
         [Authorize]
         [HttpPost("logout")]
         public async Task<IActionResult> Logout(CancellationToken ct)

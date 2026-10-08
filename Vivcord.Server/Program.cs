@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Azure.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Azure;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;
@@ -39,6 +40,7 @@ builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 //http client
 builder.Services.AddHttpClient<IKlipyService, KlipyService>(); builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 
+//Azure SignalR
 var signalRBuilder = builder.Services.AddSignalR();
 var azureSignalRConnectionString = builder.Configuration.GetConnectionString("AzureSignalR");
 if (!string.IsNullOrWhiteSpace(azureSignalRConnectionString))
@@ -46,6 +48,26 @@ if (!string.IsNullOrWhiteSpace(azureSignalRConnectionString))
     signalRBuilder.AddAzureSignalR(options =>
     {
         options.ConnectionString = azureSignalRConnectionString;
+    });
+}
+//Azure communication services
+var emailConnectionString = builder.Configuration.GetConnectionString("AzureCommunicationServices")
+    ?? builder.Configuration["AzureCommunicationService:ConnectionString"];
+var emailEndpoint = builder.Configuration["AzureCommunicationService:Endpoint"];
+var emailKey = builder.Configuration["AzureCommunicationService:Key"];
+
+if (!string.IsNullOrWhiteSpace(emailConnectionString))
+{
+    builder.Services.AddAzureClients(clientBuilder =>
+    {
+        clientBuilder.AddEmailClient(emailConnectionString);
+    });
+}
+else if (!string.IsNullOrWhiteSpace(emailEndpoint) && !string.IsNullOrWhiteSpace(emailKey))
+{
+    builder.Services.AddAzureClients(clientBuilder =>
+    {
+        clientBuilder.AddEmailClient(new Uri(emailEndpoint), new Azure.AzureKeyCredential(emailKey));
     });
 }
 
