@@ -5,7 +5,7 @@ export interface UserDTO {
   userName?: string;
   profilePictureUrl?: string | null;
   roles: string[];
-}
+};
 export interface RegisterDTO {
   name: string
   email: string
@@ -14,4 +14,9 @@ export interface RegisterDTO {
 export interface LoginDTO {
   email: string
   password: string
-}
+};
+export interface ResetPasswordDTO {
+  userId: string;
+  token: string;
+  newPassword: string;
+};

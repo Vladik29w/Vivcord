@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, catchError, of } from 'rxjs';
-import { UserDTO, RegisterDTO, LoginDTO } from '../dto/account.dto';
+import { UserDTO, RegisterDTO, LoginDTO, ResetPasswordDTO } from '../dto/account.dto';
 import { environment } from '@environments/environment';
 
 @Injectable({
@@ -38,6 +38,15 @@ export class AccountService {
   refresh(): Observable<UserDTO> {
     return this.authenticate('refresh', {})
   }
+
+  forgotPassword(email: string): Observable<void> {
+    return this.http.post<void>(`${this.url}/forgot-password`, { email });
+  }
+
+  resetPassword(resetPasswordDTO: ResetPasswordDTO): Observable<void> {
+    return this.http.post<void>(`${this.url}/reset-password`, resetPasswordDTO);
+  }
+
   checkUser(): Observable<UserDTO | null> {
     return this.http.get<UserDTO>(`${this.url}/me`).pipe(
       tap({

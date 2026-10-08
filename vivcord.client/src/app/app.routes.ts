@@ -4,6 +4,8 @@ import { PrivateHubComponent } from '../app/private-hub/component/private-hub';
 import { FriendListComponent } from '../app/friend-list/component/friend-list';
 import { LoginComponent } from '../app/account/components/login.component/login';
 import { RegisterComponent } from '../app/account/components/register.component/register';
+import { ForgotPasswordComponent } from './account/components/forgot-password/forgot-password';
+import { ResetPasswordComponent } from './account/components/reset-password/reset-password';
 import { VoiceChatComponent } from './voice-chat/component/voice-chat/voice-chat';
 import { GroupHubComponent } from './group-hub/component/group-hub';
 import { Profile } from './profile/component/profile';
@@ -18,6 +20,16 @@ export const routes: Routes = [
   {
     path: 'register',
     component: RegisterComponent,
+    canActivate: [guestGuard]
+  },
+  {
+    path: 'forgot-password',
+    component: ForgotPasswordComponent,
+    canActivate: [guestGuard]
+  },
+  {
+    path: 'reset-password',
+    component: ResetPasswordComponent,
     canActivate: [guestGuard]
   },
   {
