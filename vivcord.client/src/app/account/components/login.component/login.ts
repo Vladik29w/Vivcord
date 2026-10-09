@@ -3,11 +3,12 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AccountService } from '@account/service/account.service';
 import { LoginDTO } from '@account/dto/account.dto';
+import { GoogleAuth } from '@account/google-auth/google-auth';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, GoogleAuth],
   templateUrl: './login.html',
   styleUrl: './login.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -25,6 +26,15 @@ export class LoginComponent {
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
   });
+
+  onGoogleSuccess(): void {
+    this.error.set(null);
+    this._router.navigate(['/']);
+  }
+
+  onGoogleError(errorMessage: string): void {
+    this.error.set(errorMessage || 'Google sign-in failed');
+  }
 
   onSubmit(): void {
     if (this.loginForm.invalid) {

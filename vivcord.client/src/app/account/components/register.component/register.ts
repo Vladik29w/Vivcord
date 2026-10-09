@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AccountService } from '@account/service/account.service';
 import { RegisterDTO } from '@account/dto/account.dto';
+import { GoogleAuth } from '@account/google-auth/google-auth';
 
 export type PasswordStrengthLevel = 'empty' | 'weak' | 'fair' | 'strong' | 'very-strong';
 
@@ -18,7 +19,7 @@ export interface PasswordStrength {
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, GoogleAuth],
   templateUrl: './register.html',
   styleUrl: './register.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,6 +55,15 @@ export class RegisterComponent {
       .subscribe((val) => {
         this.passwordValue.set(val || '');
       });
+  }
+
+  onGoogleSuccess(): void {
+    this.error.set(null);
+    this._router.navigate(['/']);
+  }
+
+  onGoogleError(errorMessage: string): void {
+    this.error.set(errorMessage || 'Google sign-up failed');
   }
 
   public calculatePasswordStrength(password: string): PasswordStrength {

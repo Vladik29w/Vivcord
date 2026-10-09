@@ -26,6 +26,21 @@
       </div>
     }
 
+    <!-- Google Sign Up -->
+    <div class="auth-oauth-section">
+      <app-google-auth
+        (success)="onGoogleSuccess()"
+        (error)="onGoogleError($event)"
+      />
+    </div>
+
+    <!-- Divider -->
+    <div class="auth-divider">
+      <span class="auth-divider-line"></span>
+      <span class="auth-divider-text">or continue with email</span>
+      <span class="auth-divider-line"></span>
+    </div>
+
     <!-- Form -->
     <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form" novalidate>
       <!-- Full Name field -->

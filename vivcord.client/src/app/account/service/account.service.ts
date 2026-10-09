@@ -47,6 +47,16 @@ export class AccountService {
     return this.http.post<void>(`${this.url}/reset-password`, resetPasswordDTO);
   }
 
+  googleLogin(idToken: string): Observable<UserDTO> {
+    return this.http.post<UserDTO>(
+      `${this.url}/google-login`,
+      { idToken },
+      { withCredentials: true }
+    ).pipe(
+      tap(user => this.currentUser.set(user))
+    );
+  }
+
   checkUser(): Observable<UserDTO | null> {
     return this.http.get<UserDTO>(`${this.url}/me`).pipe(
       tap({
