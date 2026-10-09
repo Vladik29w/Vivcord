@@ -1,18 +1,17 @@
 using Azure;
 using Azure.Communication.Email;
 using ErrorOr;
+using Google.Apis.Auth;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using System.Reflection.Metadata;
 using System.Text;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Infastructure.Jwt;
 using Vivcord.Server.Models;
 
-namespace Vivcord.Server.Services
+namespace Vivcord.Server.Services //TODO: email verification
 {
     public interface IAccountService
     {
@@ -23,6 +22,7 @@ namespace Vivcord.Server.Services
         Task<ErrorOr<UserDTO>> GetActiveUser(Guid userId, CancellationToken ct = default);
         Task<ErrorOr<Success>> ForgotPasswordEmail(string userEmail, CancellationToken ct = default);
         Task<ErrorOr<Success>> ResetPassword(ResetPasswordDTO request, CancellationToken ct = default);
+        Task<ErrorOr<UserTokensDTO>> GoogleAuthLogin(string token, CancellationToken ct = default);
     }
     public class AccountService(
         UserManager<AppUser> manager,
@@ -82,6 +82,69 @@ namespace Vivcord.Server.Services
             {
                 User = new UserDTO { Id = user.Id.ToString(), Email = login.Email!, DisplayName = user.DisplayName, ProfilePictureUrl = user.ProfilePictureUrl, Roles = roles.ToList() },
                 Token = token,
+                RefreshToken = refreshToken,
+            };
+        }
+        public async Task<ErrorOr<UserTokensDTO>> GoogleAuthLogin(string token, CancellationToken ct = default)
+        {
+            GoogleJsonWebSignature.Payload payload;
+            try
+            {
+                var settings = new GoogleJsonWebSignature.ValidationSettings()
+                {
+                    Audience = [configuration["GoogleAuth:ClientId"] ?? throw new InvalidOperationException("Null google client ID")]
+                };
+                payload = await GoogleJsonWebSignature.ValidateAsync(token, settings);
+            }
+            catch (InvalidJwtException)
+            {
+                return Error.Validation("InvalidToken", "The provided Google token is not valid.");
+            }
+
+            const string providerName = "Google";
+
+            var user = await manager.FindByLoginAsync(providerName, payload.Subject);
+
+            if (user == null)
+            {
+                user = await manager.FindByEmailAsync(payload.Email);
+
+                if (user == null)
+                {
+                    user = new AppUser
+                    {
+                        UserName = payload.Email,//TODO: make it so user can write their own username
+                        Email = payload.Email,
+                        DisplayName = payload.Name,
+                        ProfilePictureUrl = payload.Picture,
+                        EmailConfirmed = payload.EmailVerified
+                    };
+                    var createResult = await manager.CreateAsync(user);
+                    if (!createResult.Succeeded)
+                    {
+                        var errors = createResult.Errors
+                            .Select(e => Error.Validation(code: e.Code, description: e.Description))
+                            .ToList();
+                        return errors;
+                    }
+                    await manager.AddToRoleAsync(user, "User");
+                }
+                var loginInfo = new UserLoginInfo(providerName, payload.Subject, providerName);
+                var addLoginResult = await manager.AddLoginAsync(user, loginInfo);
+
+                if (!addLoginResult.Succeeded)
+                {
+                    return Error.Validation("LoginAssociationFailed", "Failed to login via Google account.");
+                }
+            }
+
+            var roles = await manager.GetRolesAsync(user);
+            var jwtToken = await tokenService.GetTokenAsync(user);
+            var refreshToken = await SetRefreshToken(user.Id, ct);
+            return new UserTokensDTO
+            {
+                User = new UserDTO { Id = user.Id.ToString(), Email = user.Email!, DisplayName = user.DisplayName, ProfilePictureUrl = user.ProfilePictureUrl, Roles = roles.ToList() },
+                Token = jwtToken,
                 RefreshToken = refreshToken,
             };
         }

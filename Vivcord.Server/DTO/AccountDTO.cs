@@ -22,6 +22,8 @@ namespace Vivcord.Server.DTO
         public required string Password { get; init; }
     }
 
+    public record GoogleAuthDTO(string IdToken);
+
     public record ForgotPasswordDTO(string Email);
 
     public record ResetPasswordDTO(Guid UserId, string Token, string NewPassword);

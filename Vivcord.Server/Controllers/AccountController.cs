@@ -32,6 +32,17 @@ namespace Vivcord.Server.Controllers
             );
         }
 
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleAuthLogin([FromBody] GoogleAuthDTO googleAuth, CancellationToken ct)
+        {
+            var userTokensResult = await accountService.GoogleAuthLogin(googleAuth.IdToken, ct);
+
+            return userTokensResult.Match(
+                user => AuthLogic(user),
+                errors => Problem(errors)
+            );
+        }
+
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword(ForgotPasswordDTO request, CancellationToken ct)
         {
@@ -48,7 +59,7 @@ namespace Vivcord.Server.Controllers
 
         [Authorize]
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout(CancellationToken ct)
+        public async Task<IActionResult> Logout(CancellationToken ct)//fix
         {
             var refToken = Request.Cookies["refToken"];
             if (string.IsNullOrEmpty(refToken))
