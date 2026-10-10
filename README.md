@@ -13,7 +13,7 @@
 * **Real-Time Messaging:** Instant message delivery in private and group chats powered by WebSockets (SignalR).
 * **Voice Chats:** Seamless audio streaming integration using LiveKit for high-quality voice communication.
 * **GIF Integration:** Quick search and sending of GIF animations via the Klipy API.
-* **Security:** User authentication and authorization system using JWT tokens.
+* **Security:** User authentication and authorization system using JWT tokens with ablity to login via Google account with Google OAuth sytem.
 * **Private & Group Rooms:** Flexible chat creation system for direct personal messaging and group communication.
 
 ## Tech Stack
@@ -23,6 +23,7 @@
 * Entity Framework Core
 * SQL Server (MSSQL)
 * SignalR (Real-time communication)
+* ErrorOr (result pattern error handling)
 * LiveKit Server SDK (Voice streaming)
 
 **Frontend:**
@@ -31,6 +32,14 @@
 * Angular Signals
 
 **Infrastructure & DevOps:**
-* Docker & Docker Compose
+* Docker
+* Azure container app (backend hosting)
+* Azure app service (frontend hosting)
 * GitHub Actions (CI/CD pipelines)
-* Microsoft Azure (Hosting)
+* Azure blob storage (user's ppf and files storage)
+* Azure communication service (email sending)
+* Oracle VM (Livekit hosting)
+
+**External APIs**
+* Google OAuth API
+* Klipy API
