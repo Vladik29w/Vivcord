@@ -15,6 +15,7 @@ namespace Vivcord.xUnit.AccountTests
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly IAccountService _accountService;
+        private readonly MainDbContext _dbContext;
 
         public AccountTest()
         {
@@ -51,6 +52,7 @@ namespace Vivcord.xUnit.AccountTests
 
             _userManager = serviceProvider.GetRequiredService<UserManager<AppUser>>();
             _accountService = serviceProvider.GetRequiredService<IAccountService>();
+            _dbContext = serviceProvider.GetRequiredService<MainDbContext>();
         }
 
         [Fact]
@@ -164,6 +166,28 @@ namespace Vivcord.xUnit.AccountTests
             Assert.Equal("user@test.com", result.Value.User.Email);
             Assert.NotNull(result.Value.Token);
             Assert.NotNull(result.Value.RefreshToken);
+        }
+
+        [Fact]
+        public async Task Success_Logout_RemovesOnlyCurrentRefreshToken()
+        {
+            var registerResult = await _accountService.UserRegister(new RegisterDTO
+            {
+                Name = "TestUser",
+                Email = "logout@test.com",
+                Password = "Password123"
+            });
+            var loginResult = await _accountService.UserLogin(new LoginDTO
+            {
+                Email = "logout@test.com",
+                Password = "Password123"
+            });
+
+            var logoutResult = await _accountService.UserLogout(registerResult.Value.RefreshToken);
+
+            Assert.False(logoutResult.IsError);
+            Assert.False(await _dbContext.RefreshTokens.AnyAsync(t => t.Token == registerResult.Value.RefreshToken));
+            Assert.True(await _dbContext.RefreshTokens.AnyAsync(t => t.Token == loginResult.Value.RefreshToken));
         }
 
         [Fact]
