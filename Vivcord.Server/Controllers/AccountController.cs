@@ -70,8 +70,7 @@ namespace Vivcord.Server.Controllers
             return logoutResult.Match(
                 success =>
                 {
-                    Response.Cookies.Delete("refToken");
-                    Response.Cookies.Delete("jwt"); 
+                    Response.ClearCookies();
                     return Ok();
                 },
                 errors => Problem(errors)
