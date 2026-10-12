@@ -11,7 +11,7 @@ using Vivcord.Server.DTO;
 using Vivcord.Server.Infastructure.Jwt;
 using Vivcord.Server.Models;
 
-namespace Vivcord.Server.Services //TODO: email verification
+namespace Vivcord.Server.Services
 {
     public interface IAccountService
     {

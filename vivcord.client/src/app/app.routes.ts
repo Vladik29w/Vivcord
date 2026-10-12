@@ -1,64 +1,54 @@
 import { Routes } from '@angular/router';
-import { HomeComponent } from '../app/home-component/home-component';
-import { PrivateHubComponent } from '../app/private-hub/component/private-hub';
-import { FriendListComponent } from '../app/friend-list/component/friend-list';
-import { LoginComponent } from '../app/account/components/login.component/login';
-import { RegisterComponent } from '../app/account/components/register.component/register';
-import { ForgotPasswordComponent } from './account/components/forgot-password/forgot-password';
-import { ResetPasswordComponent } from './account/components/reset-password/reset-password';
-import { VoiceChatComponent } from './voice-chat/component/voice-chat/voice-chat';
-import { GroupHubComponent } from './group-hub/component/group-hub';
-import { Profile } from './profile/component/profile';
 import { authGuard, guestGuard } from './auth.guard';
 
 export const routes: Routes = [
   {
     path: 'login',
-    component: LoginComponent,
+    loadComponent: () => import('./account/components/login.component/login').then(m => m.LoginComponent),
     canActivate: [guestGuard]
   },
   {
     path: 'register',
-    component: RegisterComponent,
+    loadComponent: () => import('./account/components/register.component/register').then(m => m.RegisterComponent),
     canActivate: [guestGuard]
   },
   {
     path: 'forgot-password',
-    component: ForgotPasswordComponent,
+    loadComponent: () => import('./account/components/forgot-password/forgot-password').then(m => m.ForgotPasswordComponent),
     canActivate: [guestGuard]
   },
   {
     path: 'reset-password',
-    component: ResetPasswordComponent,
+    loadComponent: () => import('./account/components/reset-password/reset-password').then(m => m.ResetPasswordComponent),
     canActivate: [guestGuard]
   },
   {
     path: '',
-    component: HomeComponent,
+    loadComponent: () => import('./home-component/home-component').then(m => m.HomeComponent),
     canActivate: [authGuard],
     children: [
       {
         path: 'chat/:username',
-        component: PrivateHubComponent
+        loadComponent: () => import('./private-hub/component/private-hub').then(m => m.PrivateHubComponent)
       },
       {
         path: 'group/:groupId',
-        component: GroupHubComponent
+        loadComponent: () => import('./group-hub/component/group-hub').then(m => m.GroupHubComponent)
       },
       {
         path: 'profile',
-        component: Profile
+        loadComponent: () => import('./profile/component/profile').then(m => m.Profile)
       }
     ]
   },
   {
     path: 'friends',
-    component: FriendListComponent,
+    loadComponent: () => import('./friend-list/component/friend-list').then(m => m.FriendListComponent),
     canActivate: [authGuard]
   },
   {
     path: 'voice-chat',
-    component: VoiceChatComponent,
+    loadComponent: () => import('./voice-chat/component/voice-chat/voice-chat').then(m => m.VoiceChatComponent),
     canActivate: [authGuard]
   },
   {

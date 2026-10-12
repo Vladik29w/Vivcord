@@ -11,7 +11,6 @@
       </div>
       <div class="header-user-info">
         <h2 class="header-user-name">{{ groupInfo()?.name ?? ('Group #' + groupId()) }}</h2>
-        <span class="header-user-status">Group chat</span>
       </div>
     </div>
 
@@ -79,8 +78,8 @@
               <span class="message-time">{{ formatMessageTime(msg.timestamp) }}</span>
             </div>
 
-            <div class="message-bubble" 
-                 [class.bubble-self]="isMyMessage(msg.senderId)" 
+            <div class="message-bubble"
+                 [class.bubble-self]="isMyMessage(msg.senderId)"
                  [class.bubble-other]="!isMyMessage(msg.senderId)"
                  [class.only-attachment]="!msg.text && msg.attachmentUrl">
               @if (msg.text) {
@@ -129,18 +128,18 @@
     }
 
     <div class="input-row-container">
-      <input 
-        #fileInput 
-        type="file" 
-        accept="image/*,video/*" 
-        style="display:none" 
-        (change)="onFileSelected($event)" 
+      <input
+        #fileInput
+        type="file"
+        accept="image/*,video/*"
+        style="display:none"
+        (change)="onFileSelected($event)"
       />
-      <button 
-        type="button" 
-        class="btn-media-attach" 
-        (click)="fileInput.click()" 
-        [disabled]="isUploading()" 
+      <button
+        type="button"
+        class="btn-media-attach"
+        (click)="fileInput.click()"
+        [disabled]="isUploading()"
         title="Attach media">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
@@ -167,20 +166,20 @@
       </div>
 
       <div class="message-input-wrapper">
-        <input 
-          #msgInput 
-          type="text" 
-          placeholder="Some message..." 
+        <input
+          #msgInput
+          type="text"
+          placeholder="Some message..."
           (keyup.enter)="send(msgInput.value); msgInput.value = ''"
           [disabled]="isUploading()"
-          autofocus 
+          autofocus
         />
       </div>
 
-      <button 
-        type="button" 
-        class="btn-send-message icon-only" 
-        (click)="send(msgInput.value); msgInput.value = ''" 
+      <button
+        type="button"
+        class="btn-send-message icon-only"
+        (click)="send(msgInput.value); msgInput.value = ''"
         [disabled]="isUploading() || (!msgInput.value && !selectedFile())"
         title="Send">
         @if (isUploading()) {
@@ -199,7 +198,7 @@
   @if (isMembersModalOpen()) {
     <div class="members-modal-backdrop" (click)="closeMembersModal()">
       <div class="members-modal-card" (click)="$event.stopPropagation()">
-        
+
         <!-- Modal Header -->
         <div class="members-modal-header">
           <div class="members-modal-title">
@@ -270,17 +269,13 @@
                 <span>{{ addMemberSuccess() }}</span>
               </div>
             }
-          } @else {
-            <div class="non-admin-note">
-              <span>Only group admin can add or remove members.</span>
-            </div>
           }
         </div>
 
         <!-- Members List Section -->
         <div class="members-modal-list-section">
           <span class="list-section-header">MEMBERS — {{ membersCount() }}</span>
-          
+
           <div class="members-scrollable-list">
             @for (m of members(); track m.userId) {
               <div class="member-row-card">

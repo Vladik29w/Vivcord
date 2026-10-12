@@ -1,7 +1,26 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { Room, RoomEvent, RemoteTrack, Track, RoomOptions, Participant, LocalAudioTrack } from 'livekit-client';
 import { VoiceParticipant } from '../dto/voice-chat.dto';
-import { DenoiseTrackProcessor } from 'livekit-rnnoise-processor';
+
+// Type-only imports — erased at compile time, zero runtime cost
+import type { Room, RemoteTrack, RoomOptions, Participant, LocalAudioTrack } from 'livekit-client';
+
+// Cached dynamic imports so the SDK is fetched only once
+let livekitModule: typeof import('livekit-client') | null = null;
+let rnnoiseModule: typeof import('livekit-rnnoise-processor') | null = null;
+
+async function getLivekit() {
+  if (!livekitModule) {
+    livekitModule = await import('livekit-client');
+  }
+  return livekitModule;
+}
+
+async function getRnnoise() {
+  if (!rnnoiseModule) {
+    rnnoiseModule = await import('livekit-rnnoise-processor');
+  }
+  return rnnoiseModule;
+}
 
 @Injectable({
   providedIn: 'root',
@@ -26,6 +45,8 @@ export class LiveKitService {
     if (roomId) this.currentRoomId.set(roomId);
     if (title) this.activeCallTitle.set(title);
 
+    const lk = await getLivekit();
+
     const options: RoomOptions = {
       adaptiveStream: true,
       dynacast: true,
@@ -36,14 +57,14 @@ export class LiveKitService {
       }
     };
 
-    this.room = new Room(options);
+    this.room = new lk.Room(options);
     this.registerEvents(this.room);
     try {
       await this.room.connect(url, token);
       await this.room.localParticipant.setMicrophoneEnabled(true);
 
       if (this.isNoiseFilterEnabled()) {
-        const trackPub = this.room.localParticipant.getTrackPublication(Track.Source.Microphone);
+        const trackPub = this.room.localParticipant.getTrackPublication(lk.Track.Source.Microphone);
         if (trackPub && trackPub.track) {
           const track = trackPub.track as LocalAudioTrack;
           const audioCtx = new AudioContext();
@@ -51,7 +72,8 @@ export class LiveKitService {
             await audioCtx.resume();
           }
           track.setAudioContext(audioCtx);
-          await track.setProcessor(new DenoiseTrackProcessor());
+          const rnnoise = await getRnnoise();
+          await track.setProcessor(new rnnoise.DenoiseTrackProcessor());
         }
       }
 
@@ -65,7 +87,7 @@ export class LiveKitService {
         });
         participant.trackPublications.forEach(pub => {
           if (pub.isSubscribed && pub.track) {
-            this.onTrackSubscribed(pub.track);
+            this.onTrackSubscribed(pub.track as RemoteTrack);
           }
         });
       });
@@ -126,7 +148,8 @@ export class LiveKitService {
       return;
     }
     try {
-      const trackPub = this.room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      const lk = await getLivekit();
+      const trackPub = this.room.localParticipant.getTrackPublication(lk.Track.Source.Microphone);
       if (trackPub && trackPub.track) {
         const track = trackPub.track as LocalAudioTrack;
         const currentlyEnabled = this.isNoiseFilterEnabled();
@@ -143,7 +166,8 @@ export class LiveKitService {
             await audioCtx.resume();
           }
           track.setAudioContext(audioCtx);
-          await track.setProcessor(new DenoiseTrackProcessor());
+          const rnnoise = await getRnnoise();
+          await track.setProcessor(new rnnoise.DenoiseTrackProcessor());
           this.isNoiseFilterEnabled.set(true);
         }
       }
@@ -153,21 +177,24 @@ export class LiveKitService {
     }
   }
 
-  private registerEvents(room: Room): void {
+  private async registerEvents(room: Room): Promise<void> {
+    const lk = await getLivekit();
     room
-      .on(RoomEvent.TrackSubscribed, (track) => this.onTrackSubscribed(track))
-      .on(RoomEvent.TrackUnsubscribed, (track) => this.onTrackUnsubscribed(track))
-      .on(RoomEvent.ParticipantConnected, (p) => this.addParticipant(p.identity, p.name, p.metadata))
-      .on(RoomEvent.ParticipantDisconnected, (p) => this.removeParticipant(p.identity))
-      .on(RoomEvent.ParticipantMetadataChanged, (_metadata, p) => {
-        if (p) this.updateParticipantMetadata(p);
+      .on(lk.RoomEvent.TrackSubscribed, (track) => this.onTrackSubscribed(track as RemoteTrack))
+      .on(lk.RoomEvent.TrackUnsubscribed, (track) => this.onTrackUnsubscribed(track as RemoteTrack))
+      .on(lk.RoomEvent.ParticipantConnected, (p) => this.addParticipant(p.identity, p.name, p.metadata))
+      .on(lk.RoomEvent.ParticipantDisconnected, (p) => this.removeParticipant(p.identity))
+      .on(lk.RoomEvent.ParticipantMetadataChanged, (_metadata, p) => {
+        if (p) this.updateParticipantMetadata(p as Participant);
       })
-      .on(RoomEvent.ActiveSpeakersChanged, (speakers) => this.updateSpeakers(speakers))
-      .on(RoomEvent.Disconnected, () => this.onDisconnected());
+      .on(lk.RoomEvent.ActiveSpeakersChanged, (speakers) => this.updateSpeakers(speakers as Participant[]))
+      .on(lk.RoomEvent.Disconnected, () => this.onDisconnected());
   }
 
   private onTrackSubscribed(track: RemoteTrack): void {
-    if (track.kind !== Track.Kind.Audio) return;
+    // Track.Kind is a simple enum value — we compare against the string directly
+    // to avoid needing a synchronous import of the livekit module
+    if (track.kind !== 'audio') return;
     const audioEl = track.attach();
     audioEl.autoplay = true;
     audioEl.muted = this.isDeafened();
@@ -243,3 +270,4 @@ export class LiveKitService {
     );
   }
 }
+
