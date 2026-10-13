@@ -38,17 +38,16 @@ export const routes: Routes = [
       {
         path: 'profile',
         loadComponent: () => import('./profile/component/profile').then(m => m.Profile)
+      },
+      {
+        path: 'voice-chat',
+        loadComponent: () => import('./voice-chat/component/voice-chat-room/voice-chat-room').then(m => m.VoiceChatRoomComponent)
       }
     ]
   },
   {
     path: 'friends',
     loadComponent: () => import('./friend-list/component/friend-list').then(m => m.FriendListComponent),
-    canActivate: [authGuard]
-  },
-  {
-    path: 'voice-chat',
-    loadComponent: () => import('./voice-chat/component/voice-chat/voice-chat').then(m => m.VoiceChatComponent),
     canActivate: [authGuard]
   },
   {
