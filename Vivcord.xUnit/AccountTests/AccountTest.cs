@@ -281,5 +281,261 @@ namespace Vivcord.xUnit.AccountTests
             Assert.True(result.IsError);
             Assert.Equal("EmailAlreadyRegistered", result.Errors.First().Code);
         }
+
+        [Fact]
+        public async Task Fail_Register_DuplicateUsername()
+        {
+            // Arrange
+            var firstRegisterDto = new RegisterDTO
+            {
+                Name = "SameUsername",
+                Email = "user1@test.com",
+                Password = "Password123"
+            };
+            await _accountService.UserRegister(firstRegisterDto);
+
+            var secondRegisterDto = new RegisterDTO
+            {
+                Name = "SameUsername",
+                Email = "user2@test.com",
+                Password = "Password123"
+            };
+            // Act
+            var result = await _accountService.UserRegister(secondRegisterDto);
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal("UsernameAlreadyTaken", result.Errors.First().Code);
+        }
+
+        [Fact]
+        public async Task Success_RefreshUserToken_ReplacesUsedToken()
+        {
+            // Arrange
+            var registerResult = await _accountService.UserRegister(new RegisterDTO
+            {
+                Name = "RefreshUser",
+                Email = "refresh@test.com",
+                Password = "Password123"
+            });
+
+            // Act
+            var result = await _accountService.RefreshUserToken(registerResult.Value.RefreshToken);
+
+            // Assert
+            Assert.False(result.IsError);
+            Assert.NotEqual(registerResult.Value.RefreshToken, result.Value.RefreshToken);
+            Assert.True(await _dbContext.RefreshTokens
+                .AnyAsync(token => token.Token == registerResult.Value.RefreshToken && token.IsUsed));
+            Assert.True(await _dbContext.RefreshTokens
+                .AnyAsync(token => token.Token == result.Value.RefreshToken && !token.IsUsed && !token.IsRevoked));
+            Assert.Equal("refresh@test.com", result.Value.User.Email);
+        }
+
+        [Fact]
+        public async Task Fail_RefreshUserToken_TokenNotFoundOrInvalid()
+        {
+            // Arrange
+            const string token = "unknown-refresh-token";
+
+            // Act
+            var result = await _accountService.RefreshUserToken(token);
+
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal("InvalidToken", result.Errors.First().Code);
+        }
+
+        [Theory]
+        [InlineData("expired")]
+        [InlineData("used")]
+        [InlineData("revoked")]
+        public async Task Fail_RefreshUserToken_InactiveToken(string state)
+        {
+            // Arrange
+            var token = new RefreshToken
+            {
+                Token = $"{state}-refresh-token",
+                UserId = Guid.NewGuid(),
+                Created = DateTimeOffset.UtcNow.AddDays(-2),
+                Expires = state == "expired" ? DateTimeOffset.UtcNow.AddDays(-1) : DateTimeOffset.UtcNow.AddDays(1),
+                IsUsed = state == "used",
+                IsRevoked = state == "revoked"
+            };
+            await _dbContext.RefreshTokens.AddAsync(token);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var result = await _accountService.RefreshUserToken(token.Token);
+
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal("InvalidToken", result.Errors.First().Code);
+        }
+
+        [Fact]
+        public async Task Fail_RefreshUserToken_UserNotFound()
+        {
+            // Arrange
+            var token = new RefreshToken
+            {
+                Token = "orphaned-refresh-token",
+                UserId = Guid.NewGuid(),
+                Created = DateTimeOffset.UtcNow,
+                Expires = DateTimeOffset.UtcNow.AddDays(1)
+            };
+            await _dbContext.RefreshTokens.AddAsync(token);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var result = await _accountService.RefreshUserToken(token.Token);
+
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal("UserNotFound", result.Errors.First().Code);
+            Assert.False((await _dbContext.RefreshTokens.SingleAsync()).IsUsed);
+        }
+
+        [Fact]
+        public async Task Fail_Logout_TokenNotFound()
+        {
+            // Arrange
+            const string token = "unknown-refresh-token";
+
+            // Act
+            var result = await _accountService.UserLogout(token);
+
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal("TokenNotFound", result.Errors.First().Code);
+        }
+
+        [Fact]
+        public async Task Success_GetActiveUser_ReturnsUserAndRoles()
+        {
+            // Arrange
+            var registerResult = await _accountService.UserRegister(new RegisterDTO
+            {
+                Name = "ActiveUser",
+                Email = "active@test.com",
+                Password = "Password123"
+            });
+
+            // Act
+            var result = await _accountService.GetActiveUser(Guid.Parse(registerResult.Value.User.Id));
+
+            // Assert
+            Assert.False(result.IsError);
+            Assert.Equal("active@test.com", result.Value.Email);
+            Assert.Equal("ActiveUser", result.Value.DisplayName);
+            Assert.Contains("User", result.Value.Roles);
+        }
+
+        [Fact]
+        public async Task Fail_GetActiveUser_UserNotFound()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+
+            // Act
+            var result = await _accountService.GetActiveUser(userId);
+
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal("UserNotFound", result.Errors.First().Code);
+        }
+
+        [Fact]
+        public async Task Success_ForgotPasswordEmail_UnknownEmailDoesNotRevealAccountExistence()
+        {
+            // Arrange
+            const string email = "unknown@test.com";
+
+            // Act
+            var result = await _accountService.ForgotPasswordEmail(email);
+
+            // Assert
+            Assert.False(result.IsError);
+        }
+
+        [Fact]
+        public async Task Fail_ForgotPasswordEmail_EmailServiceUnavailable()
+        {
+            // Arrange
+            await _accountService.UserRegister(new RegisterDTO
+            {
+                Name = "PasswordResetUser",
+                Email = "password-reset@test.com",
+                Password = "Password123"
+            });
+
+            // Act
+            var result = await _accountService.ForgotPasswordEmail("password-reset@test.com");
+
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal("EmailServiceUnavailable", result.Errors.First().Code);
+        }
+
+        [Fact]
+        public async Task Fail_ResetPassword_UserNotFound()
+        {
+            // Arrange
+            var request = new ResetPasswordDTO(Guid.NewGuid(), "reset-token", "NewPassword123");
+
+            // Act
+            var result = await _accountService.ResetPassword(request);
+
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal("UserNotFound", result.Errors.First().Code);
+        }
+
+        [Fact]
+        public async Task Fail_ResetPassword_InvalidEncodedToken()
+        {
+            // Arrange
+            var registerResult = await _accountService.UserRegister(new RegisterDTO
+            {
+                Name = "PasswordResetUser",
+                Email = "invalid-reset-token@test.com",
+                Password = "Password123"
+            });
+            var request = new ResetPasswordDTO(
+                Guid.Parse(registerResult.Value.User.Id),
+                "%",
+                "NewPassword123");
+
+            // Act
+            var result = await _accountService.ResetPassword(request);
+
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Equal("InvalidToken", result.Errors.First().Code);
+        }
+
+        [Fact]
+        public async Task Fail_ResetPassword_IdentityRejectsInvalidResetToken()
+        {
+            // Arrange
+            var registerResult = await _accountService.UserRegister(new RegisterDTO
+            {
+                Name = "PasswordResetUser",
+                Email = "identity-reset-token@test.com",
+                Password = "Password123"
+            });
+            var encodedToken = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(
+                System.Text.Encoding.UTF8.GetBytes("invalid-identity-reset-token"));
+            var request = new ResetPasswordDTO(
+                Guid.Parse(registerResult.Value.User.Id),
+                encodedToken,
+                "NewPassword123");
+
+            // Act
+            var result = await _accountService.ResetPassword(request);
+
+            // Assert
+            Assert.True(result.IsError);
+            Assert.Contains(result.Errors, error => error.Code == "InvalidToken");
+        }
     }
 }
