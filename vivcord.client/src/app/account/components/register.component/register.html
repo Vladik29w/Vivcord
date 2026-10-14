@@ -43,9 +43,9 @@
 
     <!-- Form -->
     <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form" novalidate>
-      <!-- Full Name field -->
+      <!-- Username field -->
       <div class="form-group">
-        <label for="name" class="form-label">Full Name</label>
+        <label for="name" class="form-label">Username</label>
         <div class="input-container" [class.has-error]="registerForm.get('name')?.invalid && registerForm.get('name')?.touched">
           <span class="input-icon">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -57,17 +57,19 @@
             id="name"
             type="text"
             formControlName="name"
-            placeholder="John Doe"
-            autocomplete="name"
+            placeholder="Username"
+            autocomplete="username"
             class="form-input"
           />
         </div>
         @if (registerForm.get('name')?.invalid && registerForm.get('name')?.touched) {
           <div class="form-error-hint">
             @if (registerForm.get('name')?.hasError('required')) {
-              <span>Name is required</span>
+              <span>Username is required</span>
             } @else if (registerForm.get('name')?.hasError('minlength')) {
-              <span>Name must be at least 2 characters</span>
+              <span>Username must be at least 2 characters</span>
+            } @else if (registerForm.get('name')?.hasError('taken')) {
+              <span>{{ getFieldError('name') }}</span>
             }
           </div>
         }
@@ -98,6 +100,8 @@
               <span>Email is required</span>
             } @else if (registerForm.get('email')?.hasError('email')) {
               <span>Please enter a valid email address</span>
+            } @else if (registerForm.get('email')?.hasError('taken')) {
+              <span>{{ getFieldError('email') }}</span>
             }
           </div>
         }

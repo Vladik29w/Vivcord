@@ -40,6 +40,12 @@ namespace Vivcord.Server.Services
                 return Error.Conflict(code: "EmailAlreadyRegistered", description: "Email is already registered");
             }
 
+            var existingUserName = await manager.FindByNameAsync(register.Name);
+            if (existingUserName != null)
+            {
+                return Error.Conflict(code: "UsernameAlreadyTaken", description: "Username is already taken");
+            }
+
             var user = new AppUser
             {
                 UserName = register.Name,

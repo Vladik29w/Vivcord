@@ -55,6 +55,44 @@ export class RegisterComponent {
       .subscribe((val) => {
         this.passwordValue.set(val || '');
       });
+
+    this.registerForm.controls.name.valueChanges
+      .pipe(takeUntilDestroyed(this._destroyRef))
+      .subscribe(() => {
+        if (this.registerForm.controls.name.hasError('taken')) {
+          const errors = { ...this.registerForm.controls.name.errors };
+          delete errors['taken'];
+          this.registerForm.controls.name.setErrors(Object.keys(errors).length ? errors : null);
+        }
+        if (this.error()) {
+          this.error.set(null);
+        }
+      });
+
+    this.registerForm.controls.email.valueChanges
+      .pipe(takeUntilDestroyed(this._destroyRef))
+      .subscribe(() => {
+        if (this.registerForm.controls.email.hasError('taken')) {
+          const errors = { ...this.registerForm.controls.email.errors };
+          delete errors['taken'];
+          this.registerForm.controls.email.setErrors(Object.keys(errors).length ? errors : null);
+        }
+        if (this.error()) {
+          this.error.set(null);
+        }
+      });
+  }
+
+  getFieldError(field: 'name' | 'email'): string | null {
+    const control = this.registerForm.get(field);
+    const takenErr = control?.getError('taken');
+    if (typeof takenErr === 'string') {
+      return takenErr;
+    }
+    if (takenErr) {
+      return field === 'name' ? 'This username is already taken' : 'This email is already registered';
+    }
+    return null;
   }
 
   onGoogleSuccess(): void {
@@ -139,13 +177,107 @@ export class RegisterComponent {
         this._router.navigate(['/']);
       },
       error: (err) => {
-        this.isLoading.set(false);
-        if (err instanceof HttpErrorResponse && err.status === 409) {
-          this.error.set('Email is already registered');
-        } else {
-          this.error.set(err?.error?.detail || err?.error?.title || 'Registration failed');
-        }
+        this.handleRegistrationError(err);
       }
     });
+  }
+
+  private handleRegistrationError(err: unknown): void {
+    this.isLoading.set(false);
+
+    if (!(err instanceof HttpErrorResponse)) {
+      this.error.set('Registration failed. Please try again.');
+      return;
+    }
+
+    const errorData = err.error;
+    let usernameError: string | null = null;
+    let emailError: string | null = null;
+    let generalError: string | null = null;
+
+    // 1. Check if errorData has a validation errors dictionary (e.g. ASP.NET ValidationProblem)
+    if (errorData?.errors && typeof errorData.errors === 'object') {
+      for (const [key, messages] of Object.entries(errorData.errors)) {
+        const lowerKey = key.toLowerCase();
+        const msgList = Array.isArray(messages) ? messages : [String(messages)];
+        const combinedMsg = msgList.join(' ');
+
+        if (
+          lowerKey.includes('username') ||
+          lowerKey.includes('name') ||
+          combinedMsg.toLowerCase().includes('user name') ||
+          combinedMsg.toLowerCase().includes('username') ||
+          combinedMsg.toLowerCase().includes('nickname')
+        ) {
+          usernameError = combinedMsg.toLowerCase().includes('taken')
+            ? 'This username is already taken'
+            : combinedMsg || 'This username is already taken';
+        } else if (
+          lowerKey.includes('email') ||
+          combinedMsg.toLowerCase().includes('email')
+        ) {
+          emailError = combinedMsg.toLowerCase().includes('taken') || combinedMsg.toLowerCase().includes('registered')
+            ? 'This email is already registered'
+            : combinedMsg || 'This email is already registered';
+        } else if (!generalError) {
+          generalError = combinedMsg;
+        }
+      }
+    }
+
+    // 2. Check raw error strings or message properties (409 Conflict ProblemDetails, code, title, detail)
+    const rawMessage = (
+      (typeof errorData === 'string' ? errorData : '') ||
+      errorData?.detail ||
+      errorData?.title ||
+      errorData?.message ||
+      errorData?.code ||
+      ''
+    ).toString();
+
+    const lowerMsg = rawMessage.toLowerCase();
+
+    if (
+      lowerMsg.includes('username') ||
+      lowerMsg.includes('user name') ||
+      lowerMsg.includes('nickname') ||
+      lowerMsg.includes('duplicateusername') ||
+      lowerMsg.includes('usernamealreadytaken')
+    ) {
+      usernameError = usernameError || 'This username is already taken';
+    }
+
+    if (
+      lowerMsg.includes('email') ||
+      lowerMsg.includes('duplicateemail') ||
+      lowerMsg.includes('emailalreadyregistered')
+    ) {
+      emailError = emailError || 'This email is already registered';
+    }
+
+    // 3. Fallback for 409 conflict when neither username nor email was specifically isolated
+    if (err.status === 409 && !usernameError && !emailError) {
+      emailError = 'This email is already registered';
+    }
+
+    if (usernameError) {
+      this.registerForm.controls.name.setErrors({ taken: usernameError });
+      this.registerForm.controls.name.markAsTouched();
+    }
+
+    if (emailError) {
+      this.registerForm.controls.email.setErrors({ taken: emailError });
+      this.registerForm.controls.email.markAsTouched();
+    }
+
+    if (usernameError && emailError) {
+      this.error.set('Username and email are already in use.');
+    } else if (usernameError) {
+      this.error.set(usernameError);
+    } else if (emailError) {
+      this.error.set(emailError);
+    } else {
+      this.error.set(generalError || rawMessage || 'Registration failed. Please try again.');
+    }
   }
 }
