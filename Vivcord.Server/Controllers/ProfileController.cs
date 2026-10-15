@@ -43,10 +43,10 @@ namespace Vivcord.Server.Controllers
         [HttpGet("picture-upload-token")]
         public IActionResult GetProfilePictureUploadToken([FromQuery] UploadTokenRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.FileName) || string.IsNullOrWhiteSpace(request.ContentType))
-                return Problem(Error.Validation("InvalidRequest", "FileName and ContentType are required."));
+            if (string.IsNullOrWhiteSpace(request.FileName))
+                return Problem(Error.Validation("InvalidRequest", "FileName is required."));
 
-            var result = profileService.GetProfilePictureSasToken(request.FileName, request.ContentType);
+            var result = profileService.GetProfilePictureSasToken(request.FileName);
             return result.Match(Ok, Problem);
         }
 

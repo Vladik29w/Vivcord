@@ -50,6 +50,7 @@ export class ProfileService {
     const headers = new HttpHeaders({
       'x-ms-blob-type': 'BlockBlob',
       'Content-Type': file.type,
+      'x-ms-blob-cache-control': 'public, max-age=31536000, immutable',
     });
     return this._http.put<void>(sasUrl, file, { headers });
   }

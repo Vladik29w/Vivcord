@@ -10,7 +10,7 @@ namespace Vivcord.Server.Services
     {
         public Task<ErrorOr<UserProfileDTO>> GetUserProfile(Guid userId, CancellationToken ct = default);
         public Task<ErrorOr<string>> ChangeUserDisplayName(Guid userId, string displayName, CancellationToken ct = default);
-        public ErrorOr<UploadTokenResponse> GetProfilePictureSasToken(string fileName, string contentType);
+        public ErrorOr<UploadTokenResponse> GetProfilePictureSasToken(string fileName);
         public Task<ErrorOr<Success>> UpdateProfilePictureUrl(Guid userId, string blobName, CancellationToken ct = default);
     }
     public class ProfileService(MainDbContext dbContext, IBlobStorageService blobStorageService, ITokenService tokenService) : IProfileService
@@ -41,8 +41,8 @@ namespace Vivcord.Server.Services
             return token;
         }
 
-        public ErrorOr<UploadTokenResponse> GetProfilePictureSasToken(string fileName, string contentType)
-        => blobStorageService.GenerateUploadSasToken(BlobContainers.ProfilePictures, fileName, contentType, TimeSpan.FromMinutes(15));
+        public ErrorOr<UploadTokenResponse> GetProfilePictureSasToken(string fileName)
+        => blobStorageService.GenerateUploadSasToken(BlobContainers.ProfilePictures, fileName, TimeSpan.FromMinutes(15));//check later
 
         public async Task<ErrorOr<Success>> UpdateProfilePictureUrl(Guid userId, string blobName, CancellationToken ct = default)
         {

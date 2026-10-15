@@ -1,4 +1,5 @@
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
 using ErrorOr;
 using Vivcord.Server.DTO;
@@ -13,47 +14,40 @@ namespace Vivcord.Server.Services
 
     public interface IBlobStorageService
     {
-        ErrorOr<UploadTokenResponse> GenerateUploadSasToken(string containerName, string fileName, string contentType, TimeSpan? expiry = null);
-
+        ErrorOr<UploadTokenResponse> GenerateUploadSasToken(string containerName, string fileName, TimeSpan? expiry = null);
         ErrorOr<string> GenerateSasReadUrl(string containerName, string blobName, TimeSpan? expiry = null);
-
         string GetPublicUrl(string containerName, string blobName);
-
         Task<ErrorOr<Success>> DeleteBlobAsync(string containerName, string blobName, CancellationToken cancellationToken = default);
     }
 
-    public class BlobStorageService : IBlobStorageService
+    public class BlobStorageService(IConfiguration configuration, TimeProvider timeProvider) : IBlobStorageService
     {
-        private readonly string _connectionString;
+        private readonly string connectionString = configuration["AzureBlobStorage:ConnectionString"] ?? string.Empty;
+        private readonly TimeProvider timeProvider = timeProvider ?? TimeProvider.System;
 
-        public BlobStorageService(IConfiguration configuration)
-        {
-            _connectionString = configuration["AzureBlobStorage:ConnectionString"] ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(_connectionString))
-                throw new InvalidOperationException("AzureBlobStorage:ConnectionString is not configured.");
-        }
+        private const string DefaultCacheControl = "public, max-age=31536000, immutable";
 
         public ErrorOr<UploadTokenResponse> GenerateUploadSasToken(
             string containerName,
             string fileName,
-            string contentType,
             TimeSpan? expiry = null)
         {
             try
             {
                 var blobName = $"{Guid.NewGuid()}{Path.GetExtension(fileName)}";
-                var blobClient = new BlobClient(_connectionString, containerName, blobName);
+                var blobClient = new BlobClient(connectionString, containerName, blobName);
 
                 if (!blobClient.CanGenerateSasUri)
                     return Error.Unexpected(description: "BlobClient cannot generate SAS URI. Ensure the connection string includes the account key.");
+
+                var now = timeProvider.GetUtcNow();
 
                 var sasBuilder = new BlobSasBuilder
                 {
                     BlobContainerName = containerName,
                     BlobName = blobName,
                     Resource = "b",
-                    ExpiresOn = DateTimeOffset.UtcNow.Add(expiry ?? TimeSpan.FromMinutes(15)),
-                    ContentType = contentType,
+                    ExpiresOn = now.Add(expiry ?? TimeSpan.FromMinutes(15))
                 };
                 sasBuilder.SetPermissions(BlobSasPermissions.Create | BlobSasPermissions.Write);
 
@@ -74,17 +68,27 @@ namespace Vivcord.Server.Services
         {
             try
             {
-                var blobClient = new BlobClient(_connectionString, containerName, blobName);
+                var blobClient = new BlobClient(connectionString, containerName, blobName);
 
                 if (!blobClient.CanGenerateSasUri)
                     return Error.Unexpected(description: "BlobClient cannot generate SAS URI. Ensure the connection string includes the account key.");
+
+                var now = timeProvider.GetUtcNow();
+
+                // Якщо expiry не задано, вирівнюємо до початку поточної доби (00:00 UTC) + 7 днів 
+                // для стабільності URL в браузерному кеші.
+                // Якщо передано кастомний expiry — рахуємо суворо від поточного часу now.
+                DateTimeOffset expiresOn = expiry.HasValue
+                    ? now.Add(expiry.Value)
+                    : new DateTimeOffset(now.Date, TimeSpan.Zero).AddDays(7);
 
                 var sasBuilder = new BlobSasBuilder
                 {
                     BlobContainerName = containerName,
                     BlobName = blobName,
                     Resource = "b",
-                    ExpiresOn = DateTimeOffset.UtcNow.Add(expiry ?? TimeSpan.FromHours(1)),
+                    ExpiresOn = expiresOn,
+                    CacheControl = DefaultCacheControl
                 };
                 sasBuilder.SetPermissions(BlobSasPermissions.Read);
 
@@ -98,7 +102,7 @@ namespace Vivcord.Server.Services
 
         public string GetPublicUrl(string containerName, string blobName)
         {
-            var blobClient = new BlobClient(_connectionString, containerName, blobName);
+            var blobClient = new BlobClient(connectionString, containerName, blobName);
             return blobClient.Uri.ToString();
         }
 
@@ -109,7 +113,7 @@ namespace Vivcord.Server.Services
         {
             try
             {
-                var blobClient = new BlobClient(_connectionString, containerName, blobName);
+                var blobClient = new BlobClient(connectionString, containerName, blobName);
                 await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
                 return Result.Success;
             }
