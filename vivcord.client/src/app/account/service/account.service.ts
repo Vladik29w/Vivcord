@@ -28,10 +28,12 @@ export class AccountService {
     this.http.post(`${this.url}/logout`, {}).subscribe({
       next: () => {
         this.currentUser.set(null);
+        window.location.reload();
       },
       error: (err) => {
         this.currentUser.set(null);
         console.error(err);
+        window.location.reload();
       }
     });
   }
