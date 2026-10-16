@@ -16,9 +16,7 @@ namespace Vivcord.Server.Controllers
             [FromBody] PrivateCallRequestDTO request,
             CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } callerId)
-                return Unauthorized();
-
+            var callerId = CurrentUserId!.Value;
             var result = await voiceChatService.InitiatePrivateCallAsync(callerId, CurrentUserDisplayName, request.TargetUsername, cancellationToken);
             return result.Match(Ok, Problem);
         }
@@ -28,9 +26,7 @@ namespace Vivcord.Server.Controllers
             [FromBody] GroupCallRequestDTO request,
             CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } callerId)
-                return Unauthorized();
-
+            var callerId = CurrentUserId!.Value;
             var result = await voiceChatService.InitiateGroupCallAsync(callerId, CurrentUserDisplayName, request.GroupId, cancellationToken);
             return result.Match(Ok, Problem);
         }

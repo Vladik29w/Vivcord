@@ -12,9 +12,7 @@ namespace Vivcord.Server.Controllers
         [HttpGet("history/{targetUserId:guid}")]
         public async Task<IActionResult> GetChatHistory(Guid targetUserId, CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } currentUserId)
-                return Unauthorized();
-
+            var currentUserId = CurrentUserId!.Value;
             var history = await messagingService.GetPrivateChatHistory(currentUserId, targetUserId, cancellationToken);
             return Ok(history);
         }
@@ -22,9 +20,7 @@ namespace Vivcord.Server.Controllers
         [HttpGet("group-history/{groupId}")]
         public async Task<IActionResult> GetGroupChatHistory(int groupId, CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } currentUserId)
-                return Unauthorized();
-
+            var currentUserId = CurrentUserId!.Value;
             var result = await messagingService.GetGroupChatHistory(currentUserId, groupId, cancellationToken);
             return result.Match(Ok, Problem);
         }

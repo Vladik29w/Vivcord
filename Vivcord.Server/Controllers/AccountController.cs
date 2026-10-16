@@ -59,7 +59,7 @@ namespace Vivcord.Server.Controllers
 
         [Authorize]
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout(CancellationToken ct)//fix
+        public async Task<IActionResult> Logout(CancellationToken ct)
         {
             var refToken = Request.Cookies["refToken"];
             if (string.IsNullOrEmpty(refToken))
@@ -96,9 +96,7 @@ namespace Vivcord.Server.Controllers
         [HttpGet("me")]
         public async Task<IActionResult> GetActiveUser(CancellationToken ct)
         {
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
+            var userId = CurrentUserId!.Value;
             var result = await accountService.GetActiveUser(userId, ct);
             return result.Match(Ok, Problem);
         }

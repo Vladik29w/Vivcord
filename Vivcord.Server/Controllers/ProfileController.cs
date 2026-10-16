@@ -23,9 +23,7 @@ namespace Vivcord.Server.Controllers
         [HttpPut("display-name")]
         public async Task<IActionResult> ChangeDisplayName(ChangeDisplayNameRequest request, CancellationToken ct)
         {
-            if (CurrentUserId is not { } currentUserId)
-                return Unauthorized();
-
+            var currentUserId = CurrentUserId!.Value;
             if (string.IsNullOrWhiteSpace(request.DisplayName))
                 return Problem(Error.Validation("DisplayNameRequired", "DisplayName is required."));
 
@@ -53,9 +51,7 @@ namespace Vivcord.Server.Controllers
         [HttpPut("picture-url")]
         public async Task<IActionResult> UpdateProfilePictureUrl(UpdateProfilePictureRequest request, CancellationToken ct)
         {
-            if (CurrentUserId is not { } currentUserId)
-                return Unauthorized();
-
+            var currentUserId = CurrentUserId!.Value;
             if (string.IsNullOrWhiteSpace(request.BlobName))
                 return Problem(Error.Validation("InvalidRequest", "BlobName is required."));
 

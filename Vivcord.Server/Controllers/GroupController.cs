@@ -14,9 +14,7 @@ namespace Vivcord.Server.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> CreateGroup(CreateGroupChatDTO dto, CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
+            var userId = CurrentUserId!.Value;
             var result = await groupChatService.CreateGroupAsync(userId, dto, cancellationToken);
             return result.Match(Ok, Problem);
         }
@@ -24,9 +22,7 @@ namespace Vivcord.Server.Controllers
         [HttpDelete("delete/{groupId}")]
         public async Task<IActionResult> DeleteGroup(int groupId, CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
+            var userId = CurrentUserId!.Value;
             var result = await groupChatService.DeleteGroupAsync(userId, groupId, cancellationToken);
             return result.Match(_ => Ok(), Problem);
         }
@@ -34,9 +30,7 @@ namespace Vivcord.Server.Controllers
         [HttpPost("add-member/{groupId}")]
         public async Task<IActionResult> AddMember(int groupId, [FromBody] AddGroupMemberRequest request, CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
+            var userId = CurrentUserId!.Value;
             var result = await groupChatService.AddMemberAsync(userId, groupId, request.Username, cancellationToken);
             return result.Match(_ => Ok(), Problem);
         }
@@ -47,9 +41,7 @@ namespace Vivcord.Server.Controllers
             if (string.IsNullOrWhiteSpace(username))
                 return Problem(Error.Validation("UsernameRequired", "Username is required."));
 
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
+            var userId = CurrentUserId!.Value;
             var result = await groupChatService.RemoveMemberAsync(userId, groupId, username, cancellationToken);
             return result.Match(_ => Ok(), Problem);
         }
@@ -57,9 +49,7 @@ namespace Vivcord.Server.Controllers
         [HttpPost("assign-admin/{groupId}")]
         public async Task<IActionResult> AssignAdmin(int groupId, [FromBody] AssignGroupAdminRequest request, CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
+            var userId = CurrentUserId!.Value;
             var result = await groupChatService.AssignAdminAsync(userId, groupId, request.NewAdminUsername, cancellationToken);
             return result.Match(_ => Ok(), Problem);
         }
@@ -67,9 +57,7 @@ namespace Vivcord.Server.Controllers
         [HttpGet("get/{groupId}")]
         public async Task<IActionResult> GetGroup(int groupId, CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
+            var userId = CurrentUserId!.Value;
             var result = await groupChatService.GetGroupAsync(userId, groupId, cancellationToken);
             return result.Match(Ok, Problem);
         }
@@ -77,9 +65,7 @@ namespace Vivcord.Server.Controllers
         [HttpGet("my-groups")]
         public async Task<IActionResult> GetMyGroups(CancellationToken cancellationToken)
         {
-            if (CurrentUserId is not { } userId)
-                return Unauthorized();
-
+            var userId = CurrentUserId!.Value;
             var result = await groupChatService.GetUserGroupsAsync(userId, cancellationToken);
             return result.Match(Ok, Problem);
         }
