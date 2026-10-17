@@ -5,12 +5,12 @@ using Vivcord.Server.DTO;
 
 namespace Vivcord.Server.Services.MessagingServices
 {
-    public interface IMessagingService
+    public interface IMessageReadingService
     {
         Task<IReadOnlyList<PrivateMessageDto>> GetPrivateChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default);
         Task<ErrorOr<IReadOnlyList<GroupMessageDto>>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default);
     }
-    public class MessageRedingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessagingService
+    public class MessageReadingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessageReadingService
     {
         private string? ResolveAttachmentUrl(string? url)
         {

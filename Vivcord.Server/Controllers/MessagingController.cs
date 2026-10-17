@@ -7,7 +7,7 @@ namespace Vivcord.Server.Controllers
 {
     [Route("[controller]")]
     [Authorize]
-    public class MessagingController(IMessagingService messagingService) : ApiMainController
+    public class MessagingController(IMessageReadingService messagingService) : ApiMainController
     {
         [HttpGet("history/{targetUserId:guid}")]
         public async Task<IActionResult> GetChatHistory(Guid targetUserId, CancellationToken cancellationToken)

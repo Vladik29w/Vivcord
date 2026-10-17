@@ -28,7 +28,7 @@ builder.Services.AddOptions<JwtOptions>()
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContactService, ContactService>();
-builder.Services.AddScoped<IMessagingService, MessageRedingService>();
+builder.Services.AddScoped<IMessageReadingService, MessageReadingService>();
 builder.Services.AddScoped<IMessageSendingService, MessageSendingService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddScoped<IVoiceChatService, VoiceChatService>();
