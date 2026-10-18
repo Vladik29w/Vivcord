@@ -27,10 +27,18 @@ services:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - DOTNET_WATCH_RESTART_ON_RUDE_EDIT=true
       - ConnectionStrings__DefaultConnection=Server=db,1433;Database=VivcordDb;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True;
       - JwtSetting__Key=${JWT_SECRET_KEY}
       - JwtSetting__VivcordServer=http://localhost:5000
       - JwtSetting__VivcordClient=http://localhost:4200
+    volumes:
+      - ./Vivcord.Server:/src
+      - /src/bin
+      - /src/obj
+    working_dir: /src
+    command: dotnet watch run --no-launch-profile --non-interactive
     restart: unless-stopped
 
   #DB
