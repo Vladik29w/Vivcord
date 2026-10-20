@@ -2,106 +2,91 @@ using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Services.MessagingServices
 {
     public interface IMessageReadingService
     {
-        Task<IReadOnlyList<PrivateMessageDto>> GetPrivateChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default);
-        Task<ErrorOr<IReadOnlyList<GroupMessageDto>>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default);
+        Task<ErrorOr<IReadOnlyList<MessageDto>>> GetChatHistory(long conversationId, Guid currentUserId, CancellationToken cancellationToken = default);
     }
+
     public class MessageReadingService(MainDbContext dbContext, IBlobStorageService blobStorageService) : IMessageReadingService
     {
         private string? ResolveAttachmentUrl(string? url)
         {
             if (url is null) return null;
-            //for gifs
+            // for gifs or absolute urls
             if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
                 url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 return url;
+
             var result = blobStorageService.GenerateSasReadUrl(BlobContainers.ChatMedia, url);
             return result.IsError ? null : result.Value;
         }
-        public async Task<IReadOnlyList<PrivateMessageDto>> GetPrivateChatHistory(Guid currentUserId, Guid targetUserId, CancellationToken cancellationToken = default)
-        {
-            var messages = await dbContext.PrivateMessages
-                .Where(m => (m.Sender == currentUserId && m.Target == targetUserId) ||
-                            (m.Sender == targetUserId && m.Target == currentUserId))
-                .OrderBy(m => m.SentAt)
-                .Select(m => new
-                {
-                    m.id,
-                    m.Sender,
-                    m.Target,
-                    SenderName = m.SenderUser != null
-                        ? (!string.IsNullOrWhiteSpace(m.SenderUser.DisplayName) ? m.SenderUser.DisplayName : m.SenderUser.UserName)
-                        : null,
-                    SenderAvatarUrl = m.SenderUser != null ? m.SenderUser.ProfilePictureUrl : null,
-                    m.Text,
-                    m.AttachmentUrl,
-                    m.AttachmentType,
-                    m.SentAt
-                })
-                .ToListAsync(cancellationToken);
 
-            return messages.Select(m =>
-            {
-                return new PrivateMessageDto
-                {
-                    Id = m.id,
-                    SenderId = m.Sender,
-                    TargetUserId = m.Target,
-                    Text = m.Text,
-                    AttachmentUrl = ResolveAttachmentUrl(m.AttachmentUrl),
-                    AttachmentType = m.AttachmentType,
-                    SentAt = m.SentAt,
-                    SenderName = m.SenderName,
-                    SenderAvatarUrl = m.SenderAvatarUrl
-                };
-            }).ToList();
-        }
-
-        public async Task<ErrorOr<IReadOnlyList<GroupMessageDto>>> GetGroupChatHistory(Guid currentUserId, int groupId, CancellationToken cancellationToken = default)
+        public async Task<ErrorOr<IReadOnlyList<MessageDto>>> GetChatHistory(
+            long conversationId,
+            Guid currentUserId,
+            CancellationToken cancellationToken = default)
         {
-            var group = await dbContext.GroupChats
-                .Where(g => g.id == groupId && g.Members.Any(m => m.UserId == currentUserId))
-                .Select(g => new
+            var conversationData = await dbContext.Conversations
+                .AsNoTracking()
+                .Where(c => c.Id == conversationId)
+                .Select(c => new
                 {
-                    Messages = g.Messages
-                        .OrderBy(m => m.SentAt)
+                    c.Id,
+                    c.Type,
+                    IsMember = c.Members.Any(m => m.UserId == currentUserId),
+                    Messages = c.Messages
+                        .OrderBy(m => m.Id)
                         .Select(m => new
                         {
-                            m.id,
-                            m.Sender,
-                            SenderName = m.SenderUser != null
-                                ? (!string.IsNullOrWhiteSpace(m.SenderUser.DisplayName) ? m.SenderUser.DisplayName : m.SenderUser.UserName)
-                                : null,
-                            SenderAvatarUrl = m.SenderUser != null ? m.SenderUser.ProfilePictureUrl : null,
-                            m.GroupId,
-                            m.Text,
+                            m.Id,
+                            m.ConversationId,
+                            m.SenderId,
+                            SenderName = string.IsNullOrEmpty(m.Sender.DisplayName)
+                                ? m.Sender.UserName
+                                : m.Sender.DisplayName,
+                            SenderAvatarUrl = m.Sender.ProfilePictureUrl,
+                            Text = m.Content,
                             m.AttachmentUrl,
                             m.AttachmentType,
-                            m.SentAt
+                            m.CreatedAt,
+                            m.EditedAt
                         })
                         .ToList()
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 
-            if (group == null)
-                return Error.NotFound(description: "Group not found");
+            if (conversationData == null)
+                return Error.NotFound("Conversation.NotFound", $"Conversation with ID {conversationId} was not found.");
 
-            return group.Messages.Select(m => new GroupMessageDto
+            if (!conversationData.IsMember)
             {
-                Id = m.id,
-                SenderId = m.Sender,
+                if (conversationData.Type == ConversationType.Group)
+                {
+                    return Error.Forbidden("Conversation.Forbidden", "You are not a member of this group.");
+                }
+
+                return Error.Forbidden("Conversation.Forbidden", "You are not a participant in this conversation.");
+            }
+
+            var result = conversationData.Messages.Select(m => new MessageDto
+            {
+                Id = m.Id,
+                ConversationId = m.ConversationId,
+                SenderId = m.SenderId,
                 SenderName = m.SenderName,
                 SenderAvatarUrl = m.SenderAvatarUrl,
-                GroupId = m.GroupId,
                 Text = m.Text,
                 AttachmentUrl = ResolveAttachmentUrl(m.AttachmentUrl),
                 AttachmentType = m.AttachmentType,
-                SentAt = m.SentAt
+                CreatedAt = m.CreatedAt,
+                EditedAt = m.EditedAt
             }).ToList();
+
+            return result;
         }
     }
 }
