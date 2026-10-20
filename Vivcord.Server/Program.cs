@@ -28,6 +28,7 @@ builder.Services.AddOptions<JwtOptions>()
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContactService, ContactService>();
+builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IMessageReadingService, MessageReadingService>();
 builder.Services.AddScoped<IMessageSendingService, MessageSendingService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
@@ -152,6 +153,12 @@ app.MapScalarApiReference(options =>
 
 if (!app.Environment.IsDevelopment())
 {
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+}
+
+if (!app.Environment.IsDevelopment())
+{
     app.UseHttpsRedirection();
 }
 
@@ -165,6 +172,7 @@ app.MapControllers();
 
 app.MapHub<PrivateHub>("/hubs/private");
 app.MapHub<GroupChatHub>("/hubs/group");
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.MapFallbackToFile("/index.html");
 

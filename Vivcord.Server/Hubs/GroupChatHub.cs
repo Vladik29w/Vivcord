@@ -74,7 +74,7 @@ namespace Vivcord.Server.Hubs
                 savedMessage.SentAt,
                 dto.GroupId);
 
-            return savedMessage.Id;
+            return (int)savedMessage.Id;
         }
         private async Task CheckUserGroupMembership(Guid userId)
         {

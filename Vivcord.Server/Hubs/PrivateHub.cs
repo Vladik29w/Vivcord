@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Extensions;
 using Vivcord.Server.Services.MessagingServices;
@@ -13,7 +11,7 @@ namespace Vivcord.Server.Hubs
     public class PrivateHub(
         IMessageSendingService messageSendingService,
         IUserStatusService userStatusService,
-        MainDbContext dbContext) : Hub
+        IFriendService friendService) : Hub
     {
         //messaging
         public async Task<int> SendMessage(SendPrivateMessageDto dto)
@@ -44,7 +42,7 @@ namespace Vivcord.Server.Hubs
                 savedMessage.SenderAvatarUrl,
                 savedMessage.SentAt);
 
-            return savedMessage.Id;
+            return (int)savedMessage.Id;
         }
 
         //user status
@@ -55,7 +53,7 @@ namespace Vivcord.Server.Hubs
                 var becameOnline = userStatusService.UserConnect(userId, Context.ConnectionId);
                 if (becameOnline)
                 {
-                    await NotifyFriendsStatusAsync(userId, isOnline: true);
+                    await NotifyFriendsStatusAsync(userId, isOnline: true, Context.ConnectionAborted);
                 }
             }
 
@@ -69,25 +67,21 @@ namespace Vivcord.Server.Hubs
                 var becameOffline = userStatusService.UserDisconnect(userId, Context.ConnectionId);
                 if (becameOffline)
                 {
-                    await NotifyFriendsStatusAsync(userId, isOnline: false);
+                    await NotifyFriendsStatusAsync(userId, isOnline: false, CancellationToken.None);
                 }
             }
 
             await base.OnDisconnectedAsync(exception);
         }
 
-        private async Task NotifyFriendsStatusAsync(Guid userId, bool isOnline)
+        private async Task NotifyFriendsStatusAsync(Guid userId, bool isOnline, CancellationToken cancellationToken = default)
         {
-            var friendIds = await dbContext.UserFriends
-                .Where(uf => uf.FriendId == userId || uf.UserId == userId)
-                .Select(uf => uf.UserId == userId ? uf.FriendId : uf.UserId)
-                .Distinct()
-                .ToListAsync();
+            var friendIds = await friendService.GetFriendIdsAsync(userId, cancellationToken);
 
             if (friendIds.Count > 0)
             {
                 var friendIdStrings = friendIds.Select(id => id.ToString()).ToList();
-                await Clients.Users(friendIdStrings).SendAsync("UserStatusChanged", userId, isOnline);
+                await Clients.Users(friendIdStrings).SendAsync("UserStatusChanged", userId, isOnline, cancellationToken);
             }
         }
     }

@@ -13,6 +13,7 @@ namespace Vivcord.Server.Models
         public string? AvatarUrl { get; set; }
         public string? DirectPairKey { get; set; }
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset? LastMessageAt { get; set; }
 
         public ICollection<ConversationMember> Members { get; set; } = [];
         public ICollection<Message> Messages { get; set; } = [];

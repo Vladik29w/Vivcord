@@ -8,7 +8,7 @@ namespace Vivcord.Server.Services.MessagingServices
 {
     public interface IMessageSendingService
     {
-        Task<ErrorOr<MessageSendResult>> SendMessageAsync(SendMessageRequest request, CancellationToken cancellationToken = default);
+        Task<ErrorOr<MessageSendResult>> SendMessageAsync(SendMessageRequestDto request, CancellationToken cancellationToken = default);
     }
 
     public class MessageSendingService(
@@ -29,7 +29,7 @@ namespace Vivcord.Server.Services.MessagingServices
         }
 
         public async Task<ErrorOr<MessageSendResult>> SendMessageAsync(
-            SendMessageRequest request,
+            SendMessageRequestDto request,
             CancellationToken cancellationToken = default)
         {
             var conversation = await dbContext.Conversations

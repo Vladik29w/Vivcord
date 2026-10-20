@@ -11,7 +11,9 @@ namespace Vivcord.Server.Services
         Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId, CancellationToken cancellationToken = default);
         Task<ErrorOr<FriendDTO>> AddToFriendList(Guid ownerId, string userNameToAdd, CancellationToken cancellationToken = default);
         Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<Guid>> GetFriendIdsAsync(Guid userId, CancellationToken cancellationToken = default);
     }
+
     public class FriendService(MainDbContext dbContext, IUserStatusService? userStatusService = null) : IFriendService
     {
         public async Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendList(Guid ownerId, CancellationToken cancellationToken = default)
@@ -38,6 +40,7 @@ namespace Vivcord.Server.Services
 
             return friends;
         }
+
         public async Task<ErrorOr<FriendDTO>> AddToFriendList(Guid ownerId, string userNameToAdd, CancellationToken cancellationToken = default)
         {
             var friend = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == userNameToAdd, cancellationToken);
@@ -70,8 +73,9 @@ namespace Vivcord.Server.Services
                 friend.ProfilePictureUrl,
                 userStatusService?.IsUserActive(friend.Id) ?? false);
         }
-       public async Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove, CancellationToken cancellationToken = default)
-       {
+
+        public async Task<ErrorOr<Success>> RemoveFromFriendList(Guid ownerId, string userNameToRemove, CancellationToken cancellationToken = default)
+        {
             var deletedCount = await dbContext.UserFriends
                 .Where(uf => uf.UserId == ownerId && uf.Friend.UserName == userNameToRemove)
                 .ExecuteDeleteAsync(cancellationToken);
@@ -80,6 +84,15 @@ namespace Vivcord.Server.Services
                 return Error.NotFound(description: "User not found or not in your friend list");
 
             return Result.Success;
-       }
+        }
+
+        public async Task<IReadOnlyList<Guid>> GetFriendIdsAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            return await dbContext.UserFriends
+                .Where(uf => uf.FriendId == userId || uf.UserId == userId)
+                .Select(uf => uf.UserId == userId ? uf.FriendId : uf.UserId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+        }
     }
 }
