@@ -11,23 +11,26 @@ namespace Vivcord.Server.Controllers
     [Authorize]
     public class VoiceChatController(IVoiceChatService voiceChatService) : ApiMainController
     {
-        [HttpPost("private-call")]
-        public async Task<IActionResult> InitiatePrivateCall(
-            [FromBody] PrivateCallRequestDTO request,
+        [HttpPost("{conversationId:long}")]
+        [HttpPost("call/{conversationId:long}")]
+        [HttpPost("initiate/{conversationId:long}")]
+        public async Task<IActionResult> InitiateVoiceCall(
+            long conversationId,
             CancellationToken cancellationToken)
         {
             var callerId = CurrentUserId!.Value;
-            var result = await voiceChatService.InitiatePrivateCallAsync(callerId, CurrentUserDisplayName, request.TargetUsername, cancellationToken);
+            var result = await voiceChatService.InitiateVoiceCall(callerId, CurrentUserDisplayName, conversationId, cancellationToken);
             return result.Match(Ok, Problem);
         }
 
-        [HttpPost("group-call")]
-        public async Task<IActionResult> InitiateGroupCall(
-            [FromBody] GroupCallRequestDTO request,
+        [HttpPost("call")]
+        [HttpPost("initiate")]
+        public async Task<IActionResult> InitiateVoiceCallFromBody(
+            [FromBody] VoiceCallRequestDTO request,
             CancellationToken cancellationToken)
         {
             var callerId = CurrentUserId!.Value;
-            var result = await voiceChatService.InitiateGroupCallAsync(callerId, CurrentUserDisplayName, request.GroupId, cancellationToken);
+            var result = await voiceChatService.InitiateVoiceCall(callerId, CurrentUserDisplayName, request.ConversationId, cancellationToken);
             return result.Match(Ok, Problem);
         }
     }
