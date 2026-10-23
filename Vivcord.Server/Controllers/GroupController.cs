@@ -5,69 +5,82 @@ using Vivcord.Server.Controllers.Main;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Services;
 
-namespace Vivcord.Server.Controllers
+namespace Vivcord.Server.Controllers;
+
+[Route("[controller]")]
+[Authorize]
+public class GroupController(IGroupService groupService) : ApiMainController
 {
-    [Route("[controller]")]
-    [Authorize]
-    public class GroupController(IGroupChatService groupChatService) : ApiMainController
+    [HttpPost("create")]
+    public async Task<IActionResult> CreateGroup([FromBody] CreateGroupConversationDto dto, CancellationToken ct)
     {
-        [HttpPost("create")]
-        public async Task<IActionResult> CreateGroup(CreateGroupChatDTO dto, CancellationToken cancellationToken)
-        {
-            var userId = CurrentUserId!.Value;
-            var result = await groupChatService.CreateGroupAsync(userId, dto, cancellationToken);
-            return result.Match(Ok, Problem);
-        }
+        var result = await groupService.CreateGroupAsync(CurrentUserId!.Value, dto.Name, ct);
+        return result.Match(Ok, Problem);
+    }
 
-        [HttpDelete("delete/{groupId}")]
-        public async Task<IActionResult> DeleteGroup(int groupId, CancellationToken cancellationToken)
-        {
-            var userId = CurrentUserId!.Value;
-            var result = await groupChatService.DeleteGroupAsync(userId, groupId, cancellationToken);
-            return result.Match(_ => Ok(), Problem);
-        }
+    [HttpPost("invite/{conversationId:long}")]
+    public async Task<IActionResult> InviteMember(long conversationId, [FromBody] InviteToGroupRequest request, CancellationToken ct)
+    {
+        var result = await groupService.InviteMemberAsync(CurrentUserId!.Value, conversationId, request.Username, ct);
+        return result.Match(_ => Ok(), Problem);
+    }
 
-        [HttpPost("add-member/{groupId}")]
-        public async Task<IActionResult> AddMember(int groupId, [FromBody] AddGroupMemberRequest request, CancellationToken cancellationToken)
-        {
-            var userId = CurrentUserId!.Value;
-            var result = await groupChatService.AddMemberAsync(userId, groupId, request.Username, cancellationToken);
-            return result.Match(_ => Ok(), Problem);
-        }
+    [HttpPost("accept/{conversationId:long}")]
+    public async Task<IActionResult> AcceptInvite(long conversationId, CancellationToken ct)
+    {
+        var result = await groupService.AcceptInviteAsync(CurrentUserId!.Value, conversationId, ct);
+        return result.Match(_ => Ok(), Problem);
+    }
 
-        [HttpDelete("remove-member/{groupId}")]
-        public async Task<IActionResult> RemoveMember(int groupId, [FromQuery] string username, CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrWhiteSpace(username))
-                return Problem(Error.Validation("UsernameRequired", "Username is required."));
+    [HttpPost("decline/{conversationId:long}")]
+    public async Task<IActionResult> DeclineInvite(long conversationId, CancellationToken ct)
+    {
+        var result = await groupService.DeclineInviteAsync(CurrentUserId!.Value, conversationId, ct);
+        return result.Match(_ => Ok(), Problem);
+    }
 
-            var userId = CurrentUserId!.Value;
-            var result = await groupChatService.RemoveMemberAsync(userId, groupId, username, cancellationToken);
-            return result.Match(_ => Ok(), Problem);
-        }
+    [HttpPost("leave/{conversationId:long}")]
+    public async Task<IActionResult> LeaveGroup(long conversationId, CancellationToken ct)
+    {
+        var result = await groupService.LeaveGroupAsync(CurrentUserId!.Value, conversationId, ct);
+        return result.Match(_ => Ok(), Problem);
+    }
 
-        [HttpPost("assign-admin/{groupId}")]
-        public async Task<IActionResult> AssignAdmin(int groupId, [FromBody] AssignGroupAdminRequest request, CancellationToken cancellationToken)
-        {
-            var userId = CurrentUserId!.Value;
-            var result = await groupChatService.AssignAdminAsync(userId, groupId, request.NewAdminUsername, cancellationToken);
-            return result.Match(_ => Ok(), Problem);
-        }
+    [HttpDelete("kick/{conversationId:long}")]
+    public async Task<IActionResult> KickMember(long conversationId, [FromQuery] string username, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+            return Problem(Error.Validation("UsernameRequired", "Username is required."));
 
-        [HttpGet("get/{groupId}")]
-        public async Task<IActionResult> GetGroup(int groupId, CancellationToken cancellationToken)
-        {
-            var userId = CurrentUserId!.Value;
-            var result = await groupChatService.GetGroupAsync(userId, groupId, cancellationToken);
-            return result.Match(Ok, Problem);
-        }
+        var result = await groupService.KickMemberAsync(CurrentUserId!.Value, conversationId, username, ct);
+        return result.Match(_ => Ok(), Problem);
+    }
 
-        [HttpGet("my-groups")]
-        public async Task<IActionResult> GetMyGroups(CancellationToken cancellationToken)
-        {
-            var userId = CurrentUserId!.Value;
-            var result = await groupChatService.GetUserGroupsAsync(userId, cancellationToken);
-            return result.Match(Ok, Problem);
-        }
+    [HttpPost("assign-admin/{conversationId:long}")]
+    public async Task<IActionResult> AssignAdmin(long conversationId, [FromBody] AssignAdminRequest request, CancellationToken ct)
+    {
+        var result = await groupService.AssignAdminAsync(CurrentUserId!.Value, conversationId, request.NewAdminUsername, ct);
+        return result.Match(_ => Ok(), Problem);
+    }
+
+    [HttpDelete("delete/{conversationId:long}")]
+    public async Task<IActionResult> DeleteGroup(long conversationId, CancellationToken ct)
+    {
+        var result = await groupService.DeleteGroupAsync(CurrentUserId!.Value, conversationId, ct);
+        return result.Match(_ => Ok(), Problem);
+    }
+
+    [HttpGet("pending-invites")]
+    public async Task<IActionResult> GetPendingInvites(CancellationToken ct)
+    {
+        var result = await groupService.GetPendingInvitesAsync(CurrentUserId!.Value, ct);
+        return result.Match(Ok, Problem);
+    }
+
+    [HttpGet("my-groups")]
+    public async Task<IActionResult> GetMyGroups(CancellationToken ct)
+    {
+        var result = await groupService.GetUserGroupsAsync(CurrentUserId!.Value, ct);
+        return result.Match(Ok, Problem);
     }
 }

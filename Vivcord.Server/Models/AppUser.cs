@@ -13,13 +13,5 @@ namespace Vivcord.Server.Models
         public string DisplayName { get; set; } = string.Empty;
         public string? ProfilePictureUrl { get; set; }
         public ICollection<ConversationMember> ConversationMemberships { get; set; } = new List<ConversationMember>();
-        public ICollection<AppUserFriend> Friends { get; set; } = new List<AppUserFriend>();
-    }
-    public class AppUserFriend
-    {
-        public required Guid UserId { get; set; }
-        public AppUser User { get; set; } = null!;
-        public required Guid FriendId { get; set; }
-        public AppUser Friend { get; set; } = null!;
     }
 }

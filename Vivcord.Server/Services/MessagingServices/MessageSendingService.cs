@@ -14,7 +14,8 @@ namespace Vivcord.Server.Services.MessagingServices
     public class MessageSendingService(
         MainDbContext dbContext,
         TimeProvider timeProvider,
-        IBlobStorageService blobStorageService) : IMessageSendingService
+        IBlobStorageService blobStorageService,
+        IConversationQueryService conversationQueryService) : IMessageSendingService
     {
         private string? ToSasUrl(string? attachmentUrl)
         {
@@ -32,6 +33,12 @@ namespace Vivcord.Server.Services.MessagingServices
             SendMessageRequestDto request,
             CancellationToken cancellationToken = default)
         {
+            var canSend = await conversationQueryService.CanSendMessageAsync(request.SenderId, request.ConversationId, cancellationToken);
+            if (!canSend)
+            {
+                return Error.Forbidden("Conversation.Forbidden", "You cannot send messages to this conversation.");
+            }
+
             var conversation = await dbContext.Conversations
                 .Where(c => c.Id == request.ConversationId)
                 .Select(c => new
@@ -50,14 +57,6 @@ namespace Vivcord.Server.Services.MessagingServices
             if (conversation == null)
             {
                 return Error.NotFound("Conversation.NotFound", $"Conversation with ID {request.ConversationId} was not found.");
-            }
-
-            if (conversation.SenderMember == null)
-            {
-                if (conversation.Entity.Type == ConversationType.Group)
-                    return Error.Forbidden("Conversation.Forbidden", "You are not a member of this group.");
-
-                return Error.Forbidden("Conversation.Forbidden", "You are not a participant in this conversation.");
             }
 
             var now = timeProvider.GetUtcNow();
@@ -81,7 +80,7 @@ namespace Vivcord.Server.Services.MessagingServices
                 ToSasUrl(request.AttachmentUrl),
                 message.CreatedAt,
                 request.SenderDisplayName,
-                conversation.SenderMember.AvatarUrl);
+                conversation.SenderMember?.AvatarUrl);
         }
     }
 }

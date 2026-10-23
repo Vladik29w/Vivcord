@@ -75,47 +75,4 @@ namespace Vivcord.Server.DTO
         DateTimeOffset? Before = null,
         long? BeforeId = null
     );
-
-    // Legacy compatibility records
-    public record PrivateMessageDto
-    {
-        [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
-        public long Id { get; init; }
-        public Guid SenderId { get; init; }
-        public Guid TargetUserId { get; init; }
-        public required string Text { get; init; }
-        public string? AttachmentUrl { get; init; }
-        public string? AttachmentType { get; init; }
-        public DateTimeOffset SentAt { get; init; }
-        public string? SenderName { get; init; }
-        public string? SenderAvatarUrl { get; init; }
-    }
-
-    public record GroupMessageDto
-    {
-        [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
-        public long Id { get; init; }
-        public Guid SenderId { get; init; }
-        public string? SenderName { get; init; }
-        public string? SenderAvatarUrl { get; init; }
-        public long GroupId { get; init; }
-        public required string Text { get; init; }
-        public string? AttachmentUrl { get; init; }
-        public string? AttachmentType { get; init; }
-        public DateTimeOffset SentAt { get; init; }
-    }
-
-    public record SendPrivateMessageDto(
-        Guid TargetUserId,
-        string Text,
-        string? AttachmentUrl = null,
-        string? AttachmentType = null
-    );
-
-    public record SendGroupMessageDto(
-        int GroupId,
-        string Text,
-        string? AttachmentUrl = null,
-        string? AttachmentType = null
-    );
 }
