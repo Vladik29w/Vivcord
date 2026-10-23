@@ -11,6 +11,8 @@ namespace Vivcord.xUnit.FriendTests
     {
         private readonly SqliteConnection _connection;
         private readonly MainDbContext _db;
+        private readonly IConversationCommandService _commandService;
+        private readonly IFriendService _friendService;
 
         public FriendServiceTests()
         {
@@ -23,6 +25,9 @@ namespace Vivcord.xUnit.FriendTests
 
             _db = new MainDbContext(options);
             _db.Database.EnsureCreated();
+
+            _commandService = new ConversationCommandService(_db);
+            _friendService = new FriendService(_db, _commandService);
         }
 
         public void Dispose()
@@ -51,165 +56,253 @@ namespace Vivcord.xUnit.FriendTests
         }
 
         [Fact]
-        public async Task GetFriendList_WhenOwnerHasNoFriends_ReturnsEmptyList()
+        public async Task SendFriendRequest_CreatesPendingDirectConversation_SenderIsJoined_TargetIsPending()
         {
             // Arrange
-            var owner = await CreateUserAsync("owner");
-            var service = new FriendService(_db);
+            var sender = await CreateUserAsync("alice");
+            var target = await CreateUserAsync("bob");
 
             // Act
-            var result = await service.GetFriendList(owner.Id);
+            var result = await _friendService.SendFriendRequestAsync(sender.Id, "bob");
 
             // Assert
             Assert.False(result.IsError);
-            Assert.Empty(result.Value);
+            Assert.Equal("Direct", result.Value.Type);
+
+            var conv = await _db.Conversations.Include(c => c.Members).FirstOrDefaultAsync(c => c.Id == result.Value.Id);
+            Assert.NotNull(conv);
+            Assert.Equal(2, conv.Members.Count);
+
+            var senderMember = conv.Members.First(m => m.UserId == sender.Id);
+            Assert.Equal(MemberStatus.Joined, senderMember.Status);
+            Assert.NotNull(senderMember.JoinedAt);
+
+            var targetMember = conv.Members.First(m => m.UserId == target.Id);
+            Assert.Equal(MemberStatus.Pending, targetMember.Status);
+            Assert.Equal(sender.Id, targetMember.InvitedById);
+            Assert.Null(targetMember.JoinedAt);
         }
 
         [Fact]
-        public async Task GetFriendList_WhenFriendsExist_ReturnsTheirProfileDetails()
+        public async Task SendFriendRequest_WhenSelf_ReturnsConflict()
         {
             // Arrange
-            var owner = await CreateUserAsync("owner");
-            var friend = await CreateUserAsync("friend", "Friend Display", "https://example.com/friend.png");
-            _db.UserFriends.Add(new AppUserFriend { UserId = owner.Id, FriendId = friend.Id });
-            await _db.SaveChangesAsync();
-            var service = new FriendService(_db);
+            var user = await CreateUserAsync("alice");
 
             // Act
-            var result = await service.GetFriendList(owner.Id);
-
-            // Assert
-            Assert.False(result.IsError);
-            var dto = Assert.Single(result.Value);
-            Assert.Equal(friend.Id, dto.Id);
-            Assert.Equal("friend", dto.UserName);
-            Assert.Equal("Friend Display", dto.DisplayName);
-            Assert.Equal("https://example.com/friend.png", dto.ProfilePictureUrl);
-        }
-
-        [Fact]
-        public async Task AddToFriendList_WhenUsernameDoesNotExist_ReturnsNotFound()
-        {
-            // Arrange
-            var owner = await CreateUserAsync("owner");
-            var service = new FriendService(_db);
-
-            // Act
-            var result = await service.AddToFriendList(owner.Id, "missing");
-
-            // Assert
-            Assert.True(result.IsError);
-            Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
-            Assert.Equal("User missing not found", result.FirstError.Description);
-        }
-
-        [Fact]
-        public async Task AddToFriendList_WhenAddingSelf_ReturnsConflict()
-        {
-            // Arrange
-            var owner = await CreateUserAsync("owner");
-            var service = new FriendService(_db);
-
-            // Act
-            var result = await service.AddToFriendList(owner.Id, "owner");
+            var result = await _friendService.SendFriendRequestAsync(user.Id, "alice");
 
             // Assert
             Assert.True(result.IsError);
             Assert.Equal(ErrorType.Conflict, result.FirstError.Type);
-            Assert.Equal("You can't add yourself", result.FirstError.Description);
-            Assert.Empty(await _db.UserFriends.ToListAsync());
         }
 
         [Fact]
-        public async Task AddToFriendList_WhenValidUserIsAdded_PersistsFriendshipAndReturnsProfile()
+        public async Task SendFriendRequest_WhenTargetNotFound_ReturnsNotFound()
         {
             // Arrange
-            var owner = await CreateUserAsync("owner");
-            var friend = await CreateUserAsync("friend", "Friend Display", "https://example.com/friend.png");
-            var service = new FriendService(_db);
+            var user = await CreateUserAsync("alice");
 
             // Act
-            var result = await service.AddToFriendList(owner.Id, "friend");
-
-            // Assert
-            Assert.False(result.IsError);
-            Assert.Equal(friend.Id, result.Value.Id);
-            Assert.Equal("friend", result.Value.UserName);
-            Assert.Equal("Friend Display", result.Value.DisplayName);
-            Assert.Equal("https://example.com/friend.png", result.Value.ProfilePictureUrl);
-            var savedFriendship = await _db.UserFriends.AsNoTracking().SingleAsync();
-            Assert.Equal(owner.Id, savedFriendship.UserId);
-            Assert.Equal(friend.Id, savedFriendship.FriendId);
-        }
-
-        [Fact]
-        public async Task AddToFriendList_WhenFriendshipAlreadyExists_ReturnsConflict()
-        {
-            // Arrange
-            var owner = await CreateUserAsync("owner");
-            await CreateUserAsync("friend");
-            var service = new FriendService(_db);
-            await service.AddToFriendList(owner.Id, "friend");
-            _db.ChangeTracker.Clear();
-
-            // Act
-            var result = await service.AddToFriendList(owner.Id, "friend");
+            var result = await _friendService.SendFriendRequestAsync(user.Id, "unknown");
 
             // Assert
             Assert.True(result.IsError);
-            Assert.Equal(ErrorType.Conflict, result.FirstError.Type);
-            Assert.Equal("Already in friend list", result.FirstError.Description);
-            Assert.Equal(1, await _db.UserFriends.AsNoTracking().CountAsync());
+            Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
         }
 
         [Fact]
-        public async Task RemoveFromFriendList_WhenFriendshipExists_DeletesIt()
+        public async Task GetFriendList_WhenOnlyPending_ReturnsEmpty()
         {
             // Arrange
-            var owner = await CreateUserAsync("owner");
-            var friend = await CreateUserAsync("friend");
-            _db.UserFriends.Add(new AppUserFriend { UserId = owner.Id, FriendId = friend.Id });
+            var sender = await CreateUserAsync("alice");
+            var target = await CreateUserAsync("bob");
+            await _friendService.SendFriendRequestAsync(sender.Id, "bob");
+
+            // Act: sender checks friends
+            var senderFriends = await _friendService.GetFriendListAsync(sender.Id);
+            // Act: target checks friends
+            var targetFriends = await _friendService.GetFriendListAsync(target.Id);
+
+            // Assert: neither sees each other as friends yet!
+            Assert.False(senderFriends.IsError);
+            Assert.Empty(senderFriends.Value);
+
+            Assert.False(targetFriends.IsError);
+            Assert.Empty(targetFriends.Value);
+        }
+
+        [Fact]
+        public async Task AcceptFriendRequest_SetsTargetToJoined_ConversationBecomesActiveForBoth()
+        {
+            // Arrange
+            var sender = await CreateUserAsync("alice");
+            var target = await CreateUserAsync("bob", "Bob Display", "https://example.com/bob.png");
+            var sendResult = await _friendService.SendFriendRequestAsync(sender.Id, "bob");
+
+            // Act: bob accepts
+            var acceptResult = await _friendService.AcceptFriendRequestAsync(target.Id, sendResult.Value.Id);
+
+            // Assert
+            Assert.False(acceptResult.IsError);
+
+            var senderFriends = await _friendService.GetFriendListAsync(sender.Id);
+            Assert.False(senderFriends.IsError);
+            var friendOfAlice = Assert.Single(senderFriends.Value);
+            Assert.Equal(target.Id, friendOfAlice.Id);
+            Assert.Equal("bob", friendOfAlice.UserName);
+            Assert.Equal("Bob Display", friendOfAlice.DisplayName);
+
+            var targetFriends = await _friendService.GetFriendListAsync(target.Id);
+            Assert.False(targetFriends.IsError);
+            var friendOfBob = Assert.Single(targetFriends.Value);
+            Assert.Equal(sender.Id, friendOfBob.Id);
+            Assert.Equal("alice", friendOfBob.UserName);
+        }
+
+        [Fact]
+        public async Task DeclineFriendRequest_DeletesConversationEntirely()
+        {
+            // Arrange
+            var sender = await CreateUserAsync("alice");
+            var target = await CreateUserAsync("bob");
+            var sendResult = await _friendService.SendFriendRequestAsync(sender.Id, "bob");
+
+            // Act: bob declines
+            var declineResult = await _friendService.DeclineFriendRequestAsync(target.Id, sendResult.Value.Id);
+
+            // Assert
+            Assert.False(declineResult.IsError);
+            var convExists = await _db.Conversations.AnyAsync(c => c.Id == sendResult.Value.Id);
+            Assert.False(convExists);
+        }
+
+        [Fact]
+        public async Task CancelFriendRequest_DeletesConversationEntirely()
+        {
+            // Arrange
+            var sender = await CreateUserAsync("alice");
+            var target = await CreateUserAsync("bob");
+            var sendResult = await _friendService.SendFriendRequestAsync(sender.Id, "bob");
+
+            // Act: alice cancels
+            var cancelResult = await _friendService.CancelFriendRequestAsync(sender.Id, sendResult.Value.Id);
+
+            // Assert
+            Assert.False(cancelResult.IsError);
+            var convExists = await _db.Conversations.AnyAsync(c => c.Id == sendResult.Value.Id);
+            Assert.False(convExists);
+        }
+
+        [Fact]
+        public async Task RemoveFriend_WhenHistoryExists_SetsMemberToLeft_DoesNotDeleteMessages()
+        {
+            // Arrange
+            var sender = await CreateUserAsync("alice");
+            var target = await CreateUserAsync("bob");
+            var sendResult = await _friendService.SendFriendRequestAsync(sender.Id, "bob");
+            await _friendService.AcceptFriendRequestAsync(target.Id, sendResult.Value.Id);
+
+            // Add a message
+            _db.Messages.Add(new Message
+            {
+                Id = 12345,
+                ConversationId = sendResult.Value.Id,
+                SenderId = sender.Id,
+                Content = "Hello Bob!",
+                CreatedAt = DateTimeOffset.UtcNow
+            });
             await _db.SaveChangesAsync();
-            var service = new FriendService(_db);
 
-            // Act
-            var result = await service.RemoveFromFriendList(owner.Id, "friend");
+            // Act: alice removes bob
+            var removeResult = await _friendService.RemoveFriendAsync(sender.Id, "bob");
 
             // Assert
-            Assert.False(result.IsError);
-            Assert.Empty(await _db.UserFriends.AsNoTracking().ToListAsync());
+            Assert.False(removeResult.IsError);
+
+            // Conversation and message are NOT purged because Bob is still Joined!
+            var conv = await _db.Conversations.Include(c => c.Members).Include(c => c.Messages).FirstOrDefaultAsync(c => c.Id == sendResult.Value.Id);
+            Assert.NotNull(conv);
+            Assert.Single(conv.Messages);
+
+            var aliceMember = conv.Members.First(m => m.UserId == sender.Id);
+            Assert.Equal(MemberStatus.Left, aliceMember.Status);
+
+            var bobMember = conv.Members.First(m => m.UserId == target.Id);
+            Assert.Equal(MemberStatus.Joined, bobMember.Status);
         }
 
         [Fact]
-        public async Task RemoveFromFriendList_WhenUserIsNotInFriendList_ReturnsNotFound()
+        public async Task RemoveFriend_WhenSecondUserAlsoRemoves_PurgesConversationFromDb()
         {
             // Arrange
-            var owner = await CreateUserAsync("owner");
-            await CreateUserAsync("not-a-friend");
-            var service = new FriendService(_db);
+            var sender = await CreateUserAsync("alice");
+            var target = await CreateUserAsync("bob");
+            var sendResult = await _friendService.SendFriendRequestAsync(sender.Id, "bob");
+            await _friendService.AcceptFriendRequestAsync(target.Id, sendResult.Value.Id);
 
-            // Act
-            var result = await service.RemoveFromFriendList(owner.Id, "not-a-friend");
+            // Alice removes Bob
+            await _friendService.RemoveFriendAsync(sender.Id, "bob");
+
+            // Act: Bob now also removes/leaves the conversation
+            var bobLeaveResult = await _commandService.RemoveFromConversationAsync(target.Id, sendResult.Value.Id, ConversationType.Direct);
 
             // Assert
-            Assert.True(result.IsError);
-            Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
-            Assert.Equal("User not found or not in your friend list", result.FirstError.Description);
+            Assert.False(bobLeaveResult.IsError);
+
+            // Since 0 active Joined members remain, the conversation is purged!
+            var convExists = await _db.Conversations.AnyAsync(c => c.Id == sendResult.Value.Id);
+            Assert.False(convExists);
         }
 
         [Fact]
-        public async Task RemoveFromFriendList_WhenUsernameDoesNotExist_ReturnsNotFound()
+        public async Task GetIncomingAndOutgoingRequests_WorkCorrectly()
         {
             // Arrange
-            var owner = await CreateUserAsync("owner");
-            var service = new FriendService(_db);
+            var alice = await CreateUserAsync("alice");
+            var bob = await CreateUserAsync("bob");
+            var charlie = await CreateUserAsync("charlie");
+
+            // Alice requests Bob
+            await _friendService.SendFriendRequestAsync(alice.Id, "bob");
+            // Charlie requests Alice
+            await _friendService.SendFriendRequestAsync(charlie.Id, "alice");
 
             // Act
-            var result = await service.RemoveFromFriendList(owner.Id, "missing");
+            var aliceIncoming = await _friendService.GetIncomingRequestsAsync(alice.Id);
+            var aliceOutgoing = await _friendService.GetOutgoingRequestsAsync(alice.Id);
 
             // Assert
-            Assert.True(result.IsError);
-            Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
+            Assert.False(aliceIncoming.IsError);
+            Assert.Single(aliceIncoming.Value);
+            Assert.Equal("charlie", aliceIncoming.Value[0].UserName);
+
+            Assert.False(aliceOutgoing.IsError);
+            Assert.Single(aliceOutgoing.Value);
+            Assert.Equal("bob", aliceOutgoing.Value[0].UserName);
+        }
+
+        [Fact]
+        public async Task GetFriendIdsAsync_ReturnsOnlyJoinedFriendGuids()
+        {
+            // Arrange
+            var alice = await CreateUserAsync("alice");
+            var bob = await CreateUserAsync("bob");
+            var charlie = await CreateUserAsync("charlie");
+
+            // Alice and Bob are friends (accepted)
+            var req1 = await _friendService.SendFriendRequestAsync(alice.Id, "bob");
+            await _friendService.AcceptFriendRequestAsync(bob.Id, req1.Value.Id);
+
+            // Alice and Charlie: pending
+            await _friendService.SendFriendRequestAsync(alice.Id, "charlie");
+
+            // Act
+            var friendIds = await _friendService.GetFriendIdsAsync(alice.Id);
+
+            // Assert: only Bob
+            Assert.Single(friendIds);
+            Assert.Equal(bob.Id, friendIds[0]);
         }
     }
 }
