@@ -34,14 +34,20 @@
         class="nav-tab-btn" 
         [class.active]="activeTab() === 'chats'" 
         (click)="activeTab.set('chats')">
-        Chats
+        <span>Chats</span>
+        @if (incomingRequests().length > 0) {
+          <span class="tab-badge">{{ incomingRequests().length }}</span>
+        }
       </button>
       <button 
         type="button" 
         class="nav-tab-btn" 
         [class.active]="activeTab() === 'groups'" 
         (click)="activeTab.set('groups')">
-        Groups
+        <span>Groups</span>
+        @if (pendingGroupInvites().length > 0) {
+          <span class="tab-badge">{{ pendingGroupInvites().length }}</span>
+        }
       </button>
     </div>
 
@@ -51,7 +57,7 @@
           type="button" 
           class="btn-icon-action" 
           (click)="toggleAddFriend()" 
-          title="Add friend">
+          title="Send friend request">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
@@ -114,6 +120,91 @@
   <div class="chat-list-scrollable">
     @if (activeTab() === 'chats') {
       <div class="chat-items-list">
+        <!-- Incoming Friend Requests -->
+        @if (incomingRequests().length > 0) {
+          <div class="sidebar-section-label">Incoming Requests — {{ incomingRequests().length }}</div>
+          @for (req of incomingRequests(); track req.conversationId) {
+            <div class="chat-list-item request-item">
+              <div class="chat-item-avatar-wrapper">
+                <div class="chat-item-avatar">
+                  @if (req.profilePictureUrl) {
+                    <img [src]="req.profilePictureUrl" alt="Avatar" class="avatar-img-circle" />
+                  } @else {
+                    <span>{{ getInitials(req.displayName || req.userName) }}</span>
+                  }
+                </div>
+              </div>
+
+              <div class="chat-item-details">
+                <span class="chat-item-name">{{ req.displayName || req.userName }}</span>
+                <span class="chat-item-subtext">&#64;{{ req.userName }}</span>
+              </div>
+
+              <div class="request-actions">
+                <button
+                  type="button"
+                  class="btn-request-action accept"
+                  (click)="acceptFriendRequest(req, $event)"
+                  title="Accept friend request">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="btn-request-action decline"
+                  (click)="declineFriendRequest(req, $event)"
+                  title="Decline friend request">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          }
+        }
+
+        <!-- Outgoing Friend Requests -->
+        @if (outgoingRequests().length > 0) {
+          <div class="sidebar-section-label">Outgoing Requests — {{ outgoingRequests().length }}</div>
+          @for (req of outgoingRequests(); track req.conversationId) {
+            <div class="chat-list-item request-item">
+              <div class="chat-item-avatar-wrapper">
+                <div class="chat-item-avatar">
+                  @if (req.profilePictureUrl) {
+                    <img [src]="req.profilePictureUrl" alt="Avatar" class="avatar-img-circle" />
+                  } @else {
+                    <span>{{ getInitials(req.displayName || req.userName) }}</span>
+                  }
+                </div>
+              </div>
+
+              <div class="chat-item-details">
+                <span class="chat-item-name">{{ req.displayName || req.userName }}</span>
+                <span class="chat-item-subtext">Pending...</span>
+              </div>
+
+              <div class="request-actions">
+                <button
+                  type="button"
+                  class="btn-request-action decline"
+                  (click)="cancelFriendRequest(req, $event)"
+                  title="Cancel request">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          }
+        }
+
+        @if (incomingRequests().length > 0 || outgoingRequests().length > 0) {
+          <div class="sidebar-section-label">Direct Messages</div>
+        }
+
         @for (friend of friendList(); track friend.id) {
           <div 
             class="chat-list-item" 
@@ -148,14 +239,58 @@
             </button>
           </div>
         } @empty {
-          <div class="empty-chats-state">
-            <p>No chats yet</p>
-            <small>Click + to add a friend</small>
-          </div>
+          @if (incomingRequests().length === 0 && outgoingRequests().length === 0) {
+            <div class="empty-chats-state">
+              <p>No chats yet</p>
+              <small>Click + to send a friend request</small>
+            </div>
+          }
         }
       </div>
     } @else {
       <div class="chat-items-list">
+        <!-- Pending Group Invites -->
+        @if (pendingGroupInvites().length > 0) {
+          <div class="sidebar-section-label">Group Invites — {{ pendingGroupInvites().length }}</div>
+          @for (invite of pendingGroupInvites(); track invite.id) {
+            <div class="chat-list-item request-item">
+              <div class="chat-item-avatar-wrapper">
+                <div class="chat-item-avatar group-avatar">
+                  <span>#</span>
+                </div>
+              </div>
+
+              <div class="chat-item-details">
+                <span class="chat-item-name">{{ invite.title || invite.name }}</span>
+                <span class="chat-item-subtext">Invited to group</span>
+              </div>
+
+              <div class="request-actions">
+                <button
+                  type="button"
+                  class="btn-request-action accept"
+                  (click)="acceptGroupInvite(invite, $event)"
+                  title="Accept group invite">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="btn-request-action decline"
+                  (click)="declineGroupInvite(invite, $event)"
+                  title="Decline group invite">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          }
+          <div class="sidebar-section-label">My Groups</div>
+        }
+
         @for (group of groupList(); track group.id) {
           <div 
             class="chat-list-item" 
@@ -170,14 +305,16 @@
             </div>
 
             <div class="chat-item-details">
-              <span class="chat-item-name">{{ group.name }}</span>
+              <span class="chat-item-name">{{ group.title || group.name }}</span>
             </div>
           </div>
         } @empty {
-          <div class="empty-chats-state">
-            <p>No groups yet</p>
-            <small>Click + to create a group</small>
-          </div>
+          @if (pendingGroupInvites().length === 0) {
+            <div class="empty-chats-state">
+              <p>No groups yet</p>
+              <small>Click + to create a group</small>
+            </div>
+          }
         }
       </div>
     }

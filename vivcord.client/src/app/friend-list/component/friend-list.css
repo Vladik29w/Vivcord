@@ -165,11 +165,86 @@
   color: var(--text-secondary);
   flex: 1;
   min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   transition: all var(--transition-fast);
+}
+
+.tab-badge {
+  background: var(--accent-primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+.sidebar-section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  padding: 8px 8px 4px;
+}
+
+.chat-item-subtext {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.request-item {
+  cursor: default;
+}
+
+.request-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.btn-request-action {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.btn-request-action.accept {
+  background: rgba(34, 197, 94, 0.14);
+  color: var(--accent-success);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.btn-request-action.accept:hover {
+  background: var(--accent-success);
+  color: #fff;
+}
+
+.btn-request-action.decline {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--accent-danger);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.btn-request-action.decline:hover {
+  background: var(--accent-danger);
+  color: #fff;
 }
 
 .nav-tab-btn:hover {

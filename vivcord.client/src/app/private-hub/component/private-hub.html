@@ -30,7 +30,7 @@
         [class.in-call]="isCallActive()"
         [class.starting]="isStartingCall()"
         (click)="handleCallAction()"
-        [disabled]="isStartingCall()"
+        [disabled]="isStartingCall() || (!isCallActive() && !canSendMessages())"
         [title]="isCallActive() ? 'End call' : 'Start call'">
         @if (isStartingCall()) {
           <span class="spinner"></span>
@@ -139,7 +139,7 @@
         type="button" 
         class="btn-media-attach" 
         (click)="fileInput.click()" 
-        [disabled]="isUploading()" 
+        [disabled]="isUploading() || !canSendMessages()" 
         title="Attach media">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
@@ -153,7 +153,7 @@
           class="btn-gif"
           [class.active]="showGifPicker()"
           (click)="toggleGifPicker(); $event.stopPropagation()"
-          [disabled]="isUploading()"
+          [disabled]="isUploading() || !canSendMessages()"
           title="Send a GIF">
           GIF
         </button>
@@ -170,9 +170,11 @@
         <input 
           #msgInput 
           type="text" 
-          placeholder="Some message..." 
+          [placeholder]="canSendMessages() ? 'Some message...' : 'User has left the conversation'" 
+          [value]="messageText()"
+          (input)="messageText.set($any($event.target).value)"
           (keyup.enter)="send(msgInput.value); msgInput.value = ''" 
-          [disabled]="isUploading()" 
+          [disabled]="isUploading() || !canSendMessages()" 
           autofocus 
         />
       </div>
@@ -182,7 +184,7 @@
         type="button" 
         class="btn-send-message icon-only" 
         (click)="send(msgInput.value); msgInput.value = ''" 
-        [disabled]="isUploading() || (!msgInput.value && !selectedFile())" 
+        [disabled]="isUploading() || !canSendMessages() || (!messageText().trim() && !selectedFile())" 
         title="Send">
         @if (isUploading()) {
           <span class="spinner"></span>

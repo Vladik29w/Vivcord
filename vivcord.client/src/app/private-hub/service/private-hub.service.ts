@@ -1,33 +1,45 @@
 import { Injectable } from '@angular/core';
-import { Observable, Subject } from 'rxjs';
-import { MessagingService } from '../../shared/messaging/service/messaging.service';
+import { Observable, map, catchError, of } from 'rxjs';
+import { MessagingService, UserStatusEvent } from '../../shared/messaging/service/messaging.service';
 import { UserProfileDTO } from '../../profile/dto/profile.dto';
+import { ConversationDTO } from '../../group-hub/dto/conversation.dto';
 
-export type { UserProfileDTO };
-
-export interface UserStatusEvent {
-  userId: string;
-  isOnline: boolean;
-}
+export type { UserProfileDTO, UserStatusEvent };//maybe delete
 
 @Injectable({
   providedIn: 'root',
 })
 export class PrivateHubService extends MessagingService {
-  public readonly userStatusChanged$ = new Subject<UserStatusEvent>();
-
   public override connectToHub(): void {
-    super.connectToHub('/hubs/private');
-
-    this._hubConnection?.off('UserStatusChanged');
-    this._hubConnection?.on('UserStatusChanged', (userId: string, isOnline: boolean) => {
-      this.userStatusChanged$.next({ userId, isOnline });
-    });
+    super.connectToHub('/hubs/chat');
   }
 
   public loadUserProfile(username: string): Observable<UserProfileDTO> {
     return this._http.get<UserProfileDTO>(
-      `${this._apiUrl}/Contact/find/${username}`
+      `${this._apiUrl}/Contact/find/${encodeURIComponent(username)}`,
+      { withCredentials: true }
     );
+  }
+
+  public findDirectConversation(username: string, targetUserId?: string): Observable<ConversationDTO | null> {
+    return this._http
+      .get<ConversationDTO[]>(`${this._apiUrl}/Conversation`, { withCredentials: true })
+      .pipe(
+        map(conversations => {
+          const lowerName = username.toLowerCase();
+          const lowerId = targetUserId?.toLowerCase();
+          const found = conversations.find(
+            c =>
+              c.type === 'Direct' &&
+              c.members?.some(
+                m =>
+                  m.userName?.toLowerCase() === lowerName ||
+                  (lowerId && m.userId?.toLowerCase() === lowerId)
+              )
+          );
+          return found ? { ...found, id: String(found.id) } : null;
+        }),
+        catchError(() => of(null))
+      );
   }
 }
