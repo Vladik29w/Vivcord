@@ -28,13 +28,14 @@ builder.Services.AddOptions<JwtOptions>()
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IContactService, ContactService>();
-builder.Services.AddScoped<IConversationService, ConversationService>();
+builder.Services.AddScoped<IConversationQueryService, ConversationQueryService>();
+builder.Services.AddScoped<IConversationCommandService, ConversationCommandService>();
 builder.Services.AddScoped<IMessageReadingService, MessageReadingService>();
 builder.Services.AddScoped<IMessageSendingService, MessageSendingService>();
 builder.Services.AddScoped<IFriendService, FriendService>();
 builder.Services.AddScoped<IVoiceChatService, VoiceChatService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
-builder.Services.AddScoped<IGroupChatService, GroupChatService>();
+builder.Services.AddScoped<IGroupService, GroupService>();
 //singelton
 builder.Services.AddSingleton<IUserStatusService, UserStatusService>();
 builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
@@ -42,7 +43,12 @@ builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 builder.Services.AddHttpClient<IKlipyService, KlipyService>(); builder.Services.AddSingleton<IBlobStorageService, BlobStorageService>();
 
 //Azure SignalR
-var signalRBuilder = builder.Services.AddSignalR();
+var signalRBuilder = builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.NumberHandling =
+            System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
+    });
 var azureSignalRConnectionString = builder.Configuration.GetConnectionString("AzureSignalR");
 if (!string.IsNullOrWhiteSpace(azureSignalRConnectionString))
 {
@@ -170,8 +176,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapHub<PrivateHub>("/hubs/private");
-app.MapHub<GroupChatHub>("/hubs/group");
 app.MapHub<ChatHub>("/hubs/chat");
 
 app.MapFallbackToFile("/index.html");
