@@ -3,7 +3,7 @@ using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Services;
 
-public static class ConversationMapper
+public static class ConversationMapper//TODO: move to separate mapper
 {
     public static ConversationDto ToDto(this Conversation conversation)
     {

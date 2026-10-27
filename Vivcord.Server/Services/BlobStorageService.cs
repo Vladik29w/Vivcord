@@ -75,9 +75,6 @@ namespace Vivcord.Server.Services
 
                 var now = timeProvider.GetUtcNow();
 
-                // Якщо expiry не задано, вирівнюємо до початку поточної доби (00:00 UTC) + 7 днів 
-                // для стабільності URL в браузерному кеші.
-                // Якщо передано кастомний expiry — рахуємо суворо від поточного часу now.
                 DateTimeOffset expiresOn = expiry.HasValue
                     ? now.Add(expiry.Value)
                     : new DateTimeOffset(now.Date, TimeSpan.Zero).AddDays(7);

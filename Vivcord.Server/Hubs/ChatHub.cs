@@ -58,7 +58,7 @@ public class ChatHub(
         return Result.Success;
     }
 
-    public async Task<ErrorOr<string>> SendMessage(SendMessageDto dto)
+    public async Task<ErrorOr<MessageSendResult>> SendMessage(SendMessageDto dto)
     {
         var userId = Context.User.GetUserId();
         if (userId == null)
@@ -94,7 +94,7 @@ public class ChatHub(
             saved.CreatedAt,
             dto.ConversationId.ToString());
 
-        return saved.Id.ToString();
+        return saved;
     }
 
     private async Task NotifyFriendsStatusAsync(Guid userId, bool isOnline, CancellationToken cancellationToken = default)
