@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Vivcord.Server.Models;
 
 namespace Vivcord.Server.DbContext;
@@ -9,9 +10,6 @@ public class MainDbContext(DbContextOptions<MainDbContext> options)
     : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-    public DbSet<AppUserFriend> UserFriends => Set<AppUserFriend>();
-
-
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ConversationMember> ConversationMembers => Set<ConversationMember>();
     public DbSet<Message> Messages => Set<Message>();
@@ -20,42 +18,35 @@ public class MainDbContext(DbContextOptions<MainDbContext> options)
     {
         base.OnModelCreating(builder);
 
-        //role seeding
+        // Role seeding
         builder.Entity<IdentityRole<Guid>>().HasData(
             new IdentityRole<Guid> { Id = Guid.Parse("fab4fac1-c546-41de-aebc-a17da9526085"), Name = "Admin", NormalizedName = "ADMIN", ConcurrencyStamp = "1" },
             new IdentityRole<Guid> { Id = Guid.Parse("c7b013f0-5201-4317-bcc8-c21ff591658d"), Name = "User", NormalizedName = "USER", ConcurrencyStamp = "2" }
         );
 
-        //AppUserFriend relationship
-        builder.Entity<AppUserFriend>(entity =>
-        {
-            entity.HasKey(uf => new { uf.UserId, uf.FriendId });
-
-            entity.HasOne(uf => uf.User)
-                .WithMany(u => u.Friends)
-                .HasForeignKey(uf => uf.UserId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(uf => uf.Friend)
-                .WithMany()
-                .HasForeignKey(uf => uf.FriendId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        //Conversation relationship
+        // Conversation
         builder.Entity<Conversation>(entity =>
         {
             entity.Property(c => c.Id)
                 .ValueGeneratedOnAdd()
-                .HasValueGenerator<SnowflakeValueGenerator>();
+                .HasValueGenerator<SnowflakeValueGenerator>()
+                .Metadata.SetValueGenerationStrategy(SqlServerValueGenerationStrategy.None);
 
-            entity.HasIndex(c => c.DirectPairKey).IsUnique();
+            entity.Property(c => c.DirectPairKey)
+                .HasMaxLength(73)
+                .IsUnicode(false);
+
+            entity.HasIndex(c => c.DirectPairKey)
+                .IsUnique()
+                .HasFilter("[DirectPairKey] IS NOT NULL");
         });
 
-        //ConversationMember relationship
+        // ConversationMember
         builder.Entity<ConversationMember>(entity =>
         {
             entity.HasKey(cm => new { cm.ConversationId, cm.UserId });
+
+            entity.HasIndex(cm => new { cm.UserId, cm.Status });
 
             entity.HasOne(cm => cm.Conversation)
                 .WithMany(c => c.Members)
@@ -68,12 +59,13 @@ public class MainDbContext(DbContextOptions<MainDbContext> options)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        //ConversationMessage relationship
+        // Message
         builder.Entity<Message>(entity =>
         {
             entity.Property(m => m.Id)
                 .ValueGeneratedOnAdd()
-                .HasValueGenerator<SnowflakeValueGenerator>();
+                .HasValueGenerator<SnowflakeValueGenerator>()
+                .Metadata.SetValueGenerationStrategy(SqlServerValueGenerationStrategy.None);
 
             entity.HasIndex(m => new { m.ConversationId, m.Id })
                 .IsDescending(false, true);
@@ -89,7 +81,7 @@ public class MainDbContext(DbContextOptions<MainDbContext> options)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        //RefreshToken
+        // RefreshToken
         builder.Entity<RefreshToken>(entity =>
         {
             entity.HasOne(rt => rt.User)

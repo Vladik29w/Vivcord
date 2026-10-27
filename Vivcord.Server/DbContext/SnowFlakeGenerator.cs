@@ -1,4 +1,4 @@
-﻿using IdGen;
+using IdGen;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
 
