@@ -1,9 +1,5 @@
-export interface PrivateCallRequest {
-  targetUsername: string;
-}
-
-export interface GroupCallRequest {
-  groupId: number;
+export interface VoiceCallRequest {
+  conversationId: string;
 }
 
 export interface VoiceCallResponse {
