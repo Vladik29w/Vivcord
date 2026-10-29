@@ -37,7 +37,7 @@ namespace Vivcord.Server.Services.MessagingServices
                 {
                     c.Id,
                     c.Type,
-                    IsMember = c.Members.Any(m => m.UserId == currentUserId),
+                    IsMember = c.Members.Any(m => m.UserId == currentUserId && m.Status == MemberStatus.Joined),
                     Messages = c.Messages
                         .OrderBy(m => m.Id)
                         .Select(m => new
