@@ -1,7 +1,9 @@
 using ErrorOr;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Hubs;
 using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Services;
@@ -23,8 +25,28 @@ public interface IGroupService
 public class GroupService(
     MainDbContext dbContext,
     IConversationCommandService commandService,
-    IConversationQueryService queryService) : IGroupService
+    IConversationQueryService queryService,
+    IHubContext<ChatHub>? hubContext = null) : IGroupService
 {
+    private async Task<List<Guid>> GetConversationMemberIdsAsync(long conversationId, CancellationToken ct)
+    {
+        return await dbContext.ConversationMembers
+            .AsNoTracking()
+            .Where(m => m.ConversationId == conversationId)
+            .Select(m => m.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
+    private async Task NotifyGroupsUpdatedAsync(IEnumerable<Guid> userIds, long conversationId, CancellationToken ct = default)
+    {
+        if (hubContext is null) return;
+        var ids = userIds.Select(id => id.ToString()).Distinct().ToList();
+        if (ids.Count > 0)
+        {
+            await hubContext.Clients.Users(ids).SendAsync("GroupsUpdated", conversationId.ToString(), ct);
+        }
+    }
     public async Task<ErrorOr<ConversationDto>> CreateGroupAsync(Guid userId, string name, CancellationToken ct = default)
     {
         var creator = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
@@ -90,22 +112,44 @@ public class GroupService(
             InvitedById: adminId
         );
 
-        return await commandService.AddMemberAsync(request, ct);
+        var result = await commandService.AddMemberAsync(request, ct);
+        if (!result.IsError)
+        {
+            var memberIds = conversation.Members.Select(m => m.UserId).Append(targetUser.Id);
+            await NotifyGroupsUpdatedAsync(memberIds, conversationId, ct);
+        }
+
+        return result;
     }
 
     public async Task<ErrorOr<Success>> AcceptInviteAsync(Guid userId, long conversationId, CancellationToken ct = default)
     {
-        return await commandService.JoinConversationAsync(userId, conversationId, ConversationType.Group, ct);
+        var memberIds = await GetConversationMemberIdsAsync(conversationId, ct);
+        var result = await commandService.JoinConversationAsync(userId, conversationId, ConversationType.Group, ct);
+        if (!result.IsError)
+            await NotifyGroupsUpdatedAsync(memberIds, conversationId, ct);
+
+        return result;
     }
 
     public async Task<ErrorOr<Success>> DeclineInviteAsync(Guid userId, long conversationId, CancellationToken ct = default)
     {
-        return await commandService.RemoveFromConversationAsync(userId, conversationId, ConversationType.Group, ct);
+        var memberIds = await GetConversationMemberIdsAsync(conversationId, ct);
+        var result = await commandService.RemoveFromConversationAsync(userId, conversationId, ConversationType.Group, ct);
+        if (!result.IsError)
+            await NotifyGroupsUpdatedAsync(memberIds, conversationId, ct);
+
+        return result;
     }
 
     public async Task<ErrorOr<Success>> LeaveGroupAsync(Guid userId, long conversationId, CancellationToken ct = default)
     {
-        return await commandService.RemoveFromConversationAsync(userId, conversationId, ConversationType.Group, ct);
+        var memberIds = await GetConversationMemberIdsAsync(conversationId, ct);
+        var result = await commandService.RemoveFromConversationAsync(userId, conversationId, ConversationType.Group, ct);
+        if (!result.IsError)
+            await NotifyGroupsUpdatedAsync(memberIds, conversationId, ct);
+
+        return result;
     }
 
     public async Task<ErrorOr<Success>> KickMemberAsync(Guid adminId, long conversationId, string username, CancellationToken ct = default)
@@ -135,7 +179,12 @@ public class GroupService(
         if (targetMember is null)
             return Error.NotFound("Group.NotMember", "User is not a member of the group.");
 
-        return await commandService.RemoveFromConversationAsync(targetUser.Id, conversationId, ConversationType.Group, ct);
+        var memberIds = conversation.Members.Select(m => m.UserId).ToList();
+        var result = await commandService.RemoveFromConversationAsync(targetUser.Id, conversationId, ConversationType.Group, ct);
+        if (!result.IsError)
+            await NotifyGroupsUpdatedAsync(memberIds, conversationId, ct);
+
+        return result;
     }
 
     public async Task<ErrorOr<Success>> AssignAdminAsync(Guid adminId, long conversationId, string newAdminUsername, CancellationToken ct = default)
@@ -162,12 +211,22 @@ public class GroupService(
         if (targetMember is null)
             return Error.Conflict("Group.TargetNotMember", "User must be an active member of the group.");
 
-        return await commandService.TransferAdminAsync(conversationId, adminId, targetUser.Id, ct);
+        var memberIds = conversation.Members.Select(m => m.UserId).ToList();
+        var result = await commandService.TransferAdminAsync(conversationId, adminId, targetUser.Id, ct);
+        if (!result.IsError)
+            await NotifyGroupsUpdatedAsync(memberIds, conversationId, ct);
+
+        return result;
     }
 
     public async Task<ErrorOr<Success>> DeleteGroupAsync(Guid adminId, long conversationId, CancellationToken ct = default)
     {
-        return await commandService.DeleteForUserAsync(adminId, conversationId, ConversationType.Group, ct);
+        var memberIds = await GetConversationMemberIdsAsync(conversationId, ct);
+        var result = await commandService.DeleteForUserAsync(adminId, conversationId, ConversationType.Group, ct);
+        if (!result.IsError)
+            await NotifyGroupsUpdatedAsync(memberIds, conversationId, ct);
+
+        return result;
     }
 
     public async Task<ErrorOr<IReadOnlyList<ConversationDto>>> GetPendingInvitesAsync(Guid userId, CancellationToken ct = default)

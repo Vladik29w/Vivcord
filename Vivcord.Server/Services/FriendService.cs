@@ -1,12 +1,14 @@
 using ErrorOr;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Hubs;
 using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Services;
 
-public interface IFriendService
+public interface IFriendService//CQRS separation maybe?
 {
     Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendListAsync(Guid userId, CancellationToken ct = default);
     Task<ErrorOr<ConversationDto>> SendFriendRequestAsync(Guid userId, string targetUsername, CancellationToken ct = default);
@@ -22,17 +24,38 @@ public interface IFriendService
 public class FriendService(
     MainDbContext dbContext,
     IConversationCommandService commandService,
-    IUserStatusService? userStatusService = null) : IFriendService
+    IUserStatusService? userStatusService = null,
+    IHubContext<ChatHub>? hubContext = null) : IFriendService
 {
+    private async Task<List<Guid>> GetConversationMemberIdsAsync(long conversationId, CancellationToken ct)
+    {
+        return await dbContext.ConversationMembers
+            .AsNoTracking()
+            .Where(m => m.ConversationId == conversationId)
+            .Select(m => m.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
+    private async Task NotifyFriendsUpdatedAsync(IEnumerable<Guid> userIds, CancellationToken ct = default)
+    {
+        if (hubContext is null) return;
+        var ids = userIds.Select(id => id.ToString()).Distinct().ToList();
+        if (ids.Count > 0)
+        {
+            await hubContext.Clients.Users(ids).SendAsync("FriendsUpdated", cancellationToken: ct);
+        }
+    }
     public async Task<ErrorOr<IReadOnlyList<FriendDTO>>> GetFriendListAsync(Guid userId, CancellationToken ct = default)
     {
-        // Direct conversations where BOTH members are Joined
+        // Direct conversations where current user is Joined and the request is not Pending
+        // (if the other user Left, current user still sees the conversation until they also remove it)
         var directConversations = await dbContext.Conversations
             .AsNoTracking()
             .Where(c => c.Type == ConversationType.Direct &&
                         c.Members.Count == 2 &&
-                        c.Members.All(m => m.Status == MemberStatus.Joined) &&
-                        c.Members.Any(m => m.UserId == userId))
+                        c.Members.Any(m => m.UserId == userId && m.Status == MemberStatus.Joined) &&
+                        c.Members.All(m => m.Status != MemberStatus.Pending))
             .Include(c => c.Members).ThenInclude(m => m.User)
             .ToListAsync(ct);
 
@@ -40,12 +63,14 @@ public class FriendService(
         {
             var friendMember = c.Members.First(m => m.UserId != userId);
             var friendUser = friendMember.User;
+            var isFriendOnline = friendMember.Status == MemberStatus.Joined &&
+                                 (userStatusService?.IsUserActive(friendUser.Id) ?? false);
             return new FriendDTO(
                 friendUser.Id,
                 friendUser.UserName!,
                 !string.IsNullOrWhiteSpace(friendUser.DisplayName) ? friendUser.DisplayName : friendUser.UserName,
                 friendUser.ProfilePictureUrl,
-                userStatusService?.IsUserActive(friendUser.Id) ?? false,
+                isFriendOnline,
                 c.Id
             );
         }).ToList();
@@ -80,17 +105,16 @@ public class FriendService(
 
                 if (senderMember.Status is MemberStatus.Pending && targetMember.Status is MemberStatus.Joined)
                 {
-                    // Mutual request: target already invited us previously -> auto-accept
                     senderMember.Status = MemberStatus.Joined;
                     senderMember.JoinedAt = DateTimeOffset.UtcNow;
                     await dbContext.SaveChangesAsync(ct);
+                    await NotifyFriendsUpdatedAsync([userId, targetUser.Id], ct);
                     return existingConv.ToDto();
                 }
 
                 if (senderMember.Status is MemberStatus.Joined && targetMember.Status is MemberStatus.Pending)
                     return Error.Conflict("Friend.AlreadyPending", "Friend request is already pending.");
 
-                // If one of the members previously left: re-activate friendship request
                 senderMember.Status = MemberStatus.Joined;
                 senderMember.JoinedAt = DateTimeOffset.UtcNow;
                 targetMember.Status = MemberStatus.Pending;
@@ -98,6 +122,7 @@ public class FriendService(
                 targetMember.JoinedAt = null;
 
                 await dbContext.SaveChangesAsync(ct);
+                await NotifyFriendsUpdatedAsync([userId, targetUser.Id], ct);
                 return existingConv.ToDto();
             }
         }
@@ -128,22 +153,41 @@ public class FriendService(
             ]
         );
 
-        return await commandService.CreateConversationAsync(request, ct);
+        var created = await commandService.CreateConversationAsync(request, ct);
+        if (!created.IsError)
+            await NotifyFriendsUpdatedAsync([userId, targetUser.Id], ct);
+
+        return created;
     }
 
     public async Task<ErrorOr<Success>> AcceptFriendRequestAsync(Guid userId, long conversationId, CancellationToken ct = default)
     {
-        return await commandService.JoinConversationAsync(userId, conversationId, ConversationType.Direct, ct);
+        var memberIds = await GetConversationMemberIdsAsync(conversationId, ct);
+        var result = await commandService.JoinConversationAsync(userId, conversationId, ConversationType.Direct, ct);
+        if (!result.IsError)
+            await NotifyFriendsUpdatedAsync(memberIds, ct);
+
+        return result;
     }
 
     public async Task<ErrorOr<Success>> DeclineFriendRequestAsync(Guid userId, long conversationId, CancellationToken ct = default)
     {
-        return await commandService.RemoveFromConversationAsync(userId, conversationId, ConversationType.Direct, ct);
+        var memberIds = await GetConversationMemberIdsAsync(conversationId, ct);
+        var result = await commandService.RemoveFromConversationAsync(userId, conversationId, ConversationType.Direct, ct);
+        if (!result.IsError)
+            await NotifyFriendsUpdatedAsync(memberIds, ct);
+
+        return result;
     }
 
     public async Task<ErrorOr<Success>> CancelFriendRequestAsync(Guid userId, long conversationId, CancellationToken ct = default)
     {
-        return await commandService.RemoveFromConversationAsync(userId, conversationId, ConversationType.Direct, ct);
+        var memberIds = await GetConversationMemberIdsAsync(conversationId, ct);
+        var result = await commandService.RemoveFromConversationAsync(userId, conversationId, ConversationType.Direct, ct);
+        if (!result.IsError)
+            await NotifyFriendsUpdatedAsync(memberIds, ct);
+
+        return result;
     }
 
     public async Task<ErrorOr<Success>> RemoveFriendAsync(Guid userId, string friendUsername, CancellationToken ct = default)
@@ -160,7 +204,11 @@ public class FriendService(
         if (conversation is null)
             return Error.NotFound("Friend.NotFound", "User not found or not in your friend list.");
 
-        return await commandService.RemoveFromConversationAsync(userId, conversation.Id, ConversationType.Direct, ct);
+        var result = await commandService.RemoveFromConversationAsync(userId, conversation.Id, ConversationType.Direct, ct);
+        if (!result.IsError)
+            await NotifyFriendsUpdatedAsync([userId, friendUser.Id], ct);
+
+        return result;
     }
 
     public async Task<ErrorOr<IReadOnlyList<PendingFriendRequestDto>>> GetIncomingRequestsAsync(Guid userId, CancellationToken ct = default)
