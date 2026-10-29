@@ -230,6 +230,16 @@ namespace Vivcord.xUnit.FriendTests
 
             var bobMember = conv.Members.First(m => m.UserId == target.Id);
             Assert.Equal(MemberStatus.Joined, bobMember.Status);
+
+            // Alice no longer sees Bob in her friend list, but Bob STILL sees Alice until Bob also removes her
+            var aliceFriends = await _friendService.GetFriendListAsync(sender.Id);
+            Assert.False(aliceFriends.IsError);
+            Assert.Empty(aliceFriends.Value);
+
+            var bobFriends = await _friendService.GetFriendListAsync(target.Id);
+            Assert.False(bobFriends.IsError);
+            var remainingFriendForBob = Assert.Single(bobFriends.Value);
+            Assert.Equal("alice", remainingFriendForBob.UserName);
         }
 
         [Fact]
