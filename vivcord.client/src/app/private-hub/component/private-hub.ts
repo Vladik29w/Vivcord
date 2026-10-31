@@ -1,6 +1,18 @@
-import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef, ChangeDetectionStrategy, input, effect, ViewChild, ElementRef } from '@angular/core';
+import {
+  Component,
+  inject,
+  signal,
+  OnInit,
+  computed,
+  DestroyRef,
+  ChangeDetectionStrategy,
+  input,
+  effect,
+  ViewChild,
+  ElementRef,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { switchMap, tap } from 'rxjs';
+import { forkJoin, switchMap, tap, of } from 'rxjs';
 import { Router } from '@angular/router';
 import { PrivateHubService } from '../service/private-hub.service';
 import { AccountService } from '@account/service/account.service';
@@ -21,6 +33,7 @@ import { KlipyComponent } from '../../shared/messaging/klipy/component/klipy';
 })
 export class PrivateHubComponent implements OnInit {
   @ViewChild('messagesViewport') private messagesViewport?: ElementRef<HTMLElement>;
+  @ViewChild('msgInput') private msgInput?: ElementRef<HTMLInputElement>;
 
   private readonly router = inject(Router);
   private readonly chatService = inject(PrivateHubService);
@@ -33,9 +46,7 @@ export class PrivateHubComponent implements OnInit {
   public readonly usernameParam = input<string | undefined>(undefined, { alias: 'username' });
 
   public readonly isStartingCall = signal(false);
-
   public readonly isCallActive = computed(() => this.livekitService.isConnected());
-
   public readonly senderId = computed(() => this.accountService.currentUser()?.id);
 
   public readonly currentUserNickname = computed(() => {
@@ -43,17 +54,22 @@ export class PrivateHubComponent implements OnInit {
     return user?.displayName || (user?.email ? user.email.split('@')[0] : 'yourname');
   });
 
+  public readonly conversationId = signal<string | null>(null);
+  public readonly canSendMessages = signal<boolean>(true);
   public readonly targetUserId = signal<string | null>(null);
   public readonly targetDisplayName = signal<string | null>(null);
   public readonly targetProfilePictureUrl = signal<string | null>(null);
   public readonly isTargetOnline = signal<boolean>(false);
   public readonly currentUsername = computed(() => this.usernameParam() ?? '');
   public readonly messages = signal<MessageDTO[]>([]);
+  public readonly messageText = signal('');
   public readonly selectedFile = signal<File | null>(null);
   public readonly isUploading = signal(false);
   public readonly showGifPicker = signal(false);
 
-  public readonly myProfilePictureUrl = computed(() => this.accountService.currentUser()?.profilePictureUrl ?? null);
+  public readonly myProfilePictureUrl = computed(
+    () => this.accountService.currentUser()?.profilePictureUrl ?? null
+  );
 
   public readonly targetAvatarInitials = computed(() => {
     const name = this.targetDisplayName() || this.currentUsername();
@@ -75,9 +91,11 @@ export class PrivateHubComponent implements OnInit {
       const username = this.usernameParam();
       if (!username) return;
 
-      localStorage.setItem('lastChat', username);
+      localStorage.setItem('lastChat', username);//loop?
+      this.conversationId.set(null);
 
-      this.chatService.loadUserProfile(username)
+      this.chatService
+        .loadUserProfile(username)
         .pipe(
           tap(profile => {
             const targetId = profile.id || profile.userId || '';
@@ -86,15 +104,40 @@ export class PrivateHubComponent implements OnInit {
             this.targetProfilePictureUrl.set(profile.profilePictureUrl ?? null);
             this.isTargetOnline.set(profile.isOnline ?? false);
           }),
-          switchMap(profile => this.chatService.loadChatHistory(profile.id || profile.userId || '')),
+          switchMap(profile => {
+            const targetId = profile.id || profile.userId || '';
+            return forkJoin({
+              conv: this.chatService.findDirectConversation(username, targetId),
+              history: targetId ? this.chatService.loadChatHistory(targetId) : of([] as MessageDTO[]),
+            });
+          }),
           takeUntilDestroyed(this.destroyRef)
         )
         .subscribe({
-          next: history => {
+          next: ({ conv, history }) => {
+            if (!conv) {
+              // User is not an active member of this direct conversation (e.g. removed friend or not friends)
+              this.router.navigate(['/']);
+              return;
+            }
+            const resolvedConvId = conv.id;
+            const bothJoined =
+              conv.members?.length === 2 && conv.members.every(m => m.status === 'Joined');
+            this.conversationId.set(resolvedConvId);
+            this.canSendMessages.set(bothJoined);
+            if (!bothJoined) {
+              this.isTargetOnline.set(false);
+            }
+            if (resolvedConvId) {
+              this.chatService.joinConversation(resolvedConvId);
+            }
             this.messages.set(history);
             this.scrollToBottom();
           },
-          error: err => console.error('[PrivateHubComponent] Failed to load chat:', err),
+          error: err => {
+            console.error('[PrivateHubComponent] Failed to load chat:', err);
+            this.router.navigate(['/']);
+          },
         });
     });
   }
@@ -111,6 +154,31 @@ export class PrivateHubComponent implements OnInit {
           this.isTargetOnline.set(isOnline);
         }
       });
+
+    this.chatService.friendsUpdated$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        const username = this.usernameParam();
+        const targetId = this.targetUserId();
+        if (!username) return;
+        this.chatService
+          .findDirectConversation(username, targetId ?? undefined)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe(conv => {
+            if (!conv) {
+              this.router.navigate(['/']);
+              return;
+            }
+            const bothJoined =
+              conv.members?.length === 2 && conv.members.every(m => m.status === 'Joined');
+            this.conversationId.set(conv.id);
+            this.canSendMessages.set(bothJoined);
+            if (!bothJoined) {
+              this.isTargetOnline.set(false);
+            }
+            this.chatService.joinConversation(conv.id);
+          });
+      });
   }
 
   public handleCallAction(): void {
@@ -119,16 +187,19 @@ export class PrivateHubComponent implements OnInit {
       return;
     }
 
+    const convId = this.conversationId();
     const username = this.currentUsername();
-    if (!username || this.isStartingCall()) return;
+    if (!convId || this.isStartingCall()) return;
 
     this.isStartingCall.set(true);
-    this.voiceCallApi.initiatePrivateCall(username)
+    this.voiceCallApi
+      .initiatePrivateCall(convId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: async ({ roomId, token }) => {
           try {
-            await this.livekitService.connect(environment.liveKitUrl, token, roomId, username);
+            const callTitle = this.targetDisplayName() || username;
+            await this.livekitService.connect(environment.liveKitUrl, token, roomId, callTitle);
           } catch (err) {
             console.error('[PrivateHub] LiveKit connect failed:', err);
           } finally {
@@ -175,15 +246,16 @@ export class PrivateHubComponent implements OnInit {
   }
 
   public async sendGif(gifUrl: string): Promise<void> {
-    const targetId = this.targetUserId();
+    const convId = this.conversationId();
     const myId = this.senderId();
-    if (!targetId || !myId) return;
+    if (!convId || !myId) return;
 
     const tempId = crypto.randomUUID();
     this.messages.update(msgs => [
       ...msgs,
       {
         id: tempId,
+        conversationId: convId,
         senderId: myId,
         text: '',
         status: 'sending',
@@ -197,7 +269,7 @@ export class PrivateHubComponent implements OnInit {
     this.showGifPicker.set(false);
 
     try {
-      const realId = await this.chatService.sendMessage(targetId, '', gifUrl, 'image');
+      const realId = await this.chatService.sendMessage(convId, '', gifUrl, 'image');
       this.messages.update(msgs =>
         msgs.map(m => (m.id === tempId ? { ...m, id: realId, status: 'sent' } : m))
       );
@@ -208,25 +280,32 @@ export class PrivateHubComponent implements OnInit {
     }
   }
 
-  public async send(text: string): Promise<void> {
-    const targetId = this.targetUserId();
+  public async send(text?: string): Promise<void> {
+    const rawText = text !== undefined ? text : this.messageText();
+    const convId = this.conversationId();
     const myId = this.senderId();
     const file = this.selectedFile();
 
-    if (!targetId || (!text.trim() && !file) || !myId) return;
+    if (!convId || (!rawText.trim() && !file) || !myId) return;
+
+    this.messageText.set('');
+    if (this.msgInput?.nativeElement) {
+      this.msgInput.nativeElement.value = '';
+    }
 
     const tempId = crypto.randomUUID();
     const localPreviewUrl = file ? URL.createObjectURL(file) : undefined;
     const attachmentType = file
-      ? (file.type.startsWith('video/') ? 'video' : 'image') as 'image' | 'video'
+      ? ((file.type.startsWith('video/') ? 'video' : 'image') as 'image' | 'video')
       : undefined;
 
     this.messages.update(msgs => [
       ...msgs,
       {
         id: tempId,
+        conversationId: convId,
         senderId: myId,
-        text,
+        text: rawText,
         status: 'sending',
         attachmentUrl: localPreviewUrl,
         attachmentType,
@@ -239,7 +318,11 @@ export class PrivateHubComponent implements OnInit {
     this.isUploading.set(true);
 
     try {
-      const realId = await this.chatService.sendMessageWithAttachment(targetId, text, file ?? undefined);
+      const realId = await this.chatService.sendMessageWithAttachment(
+        convId,
+        rawText,
+        file ?? undefined
+      );
       this.messages.update(msgs =>
         msgs.map(m => {
           if (m.id !== tempId) return m;
@@ -260,8 +343,16 @@ export class PrivateHubComponent implements OnInit {
     this.chatService.messageReceived$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(msg => {
+        // Skip echo of own messages — already added optimistically in send()
+        if (this.isMyMessage(msg.senderId)) return;
+
+        const currentConvId = this.conversationId();
         const target = this.targetUserId();
-        if (target && msg.senderId.toLowerCase() === target.toLowerCase()) {
+        const isCurrentConversation = currentConvId
+          ? msg.conversationId === currentConvId
+          : !!target && msg.senderId.toLowerCase() === target.toLowerCase();
+
+        if (isCurrentConversation) {
           const fullMsg: MessageDTO = {
             ...msg,
             id: msg.id ?? crypto.randomUUID(),
@@ -272,7 +363,9 @@ export class PrivateHubComponent implements OnInit {
           const senderName = msg.senderName || 'Someone';
           this.toastService.show({
             title: senderName,
-            message: msg.text || (msg.attachmentType ? `Sent a ${msg.attachmentType}` : 'Sent an attachment'),
+            message:
+              msg.text ||
+              (msg.attachmentType ? `Sent a ${msg.attachmentType}` : 'Sent an attachment'),
             avatarUrl: msg.senderAvatarUrl,
             avatarInitials: senderName.substring(0, 2).toUpperCase(),
             type: 'message',

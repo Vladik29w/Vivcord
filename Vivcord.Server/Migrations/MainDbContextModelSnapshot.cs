@@ -17,7 +17,7 @@ namespace Vivcord.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -249,68 +249,81 @@ namespace Vivcord.Server.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("Vivcord.Server.Models.AppUserFriend", b =>
+            modelBuilder.Entity("Vivcord.Server.Models.Conversation", b =>
                 {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("FriendId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("UserId", "FriendId");
-
-                    b.HasIndex("FriendId");
-
-                    b.ToTable("UserFriends");
-                });
-
-            modelBuilder.Entity("Vivcord.Server.Models.GroupChat", b =>
-                {
-                    b.Property<int>("id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("bigint")
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.None);
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
-
-                    b.Property<Guid>("VoiceRoomId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("adminId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("name")
-                        .IsRequired()
+                    b.Property<string>("AvatarUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("id");
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
 
-                    b.HasIndex("adminId");
+                    b.Property<string>("DirectPairKey")
+                        .HasMaxLength(73)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(73)");
 
-                    b.ToTable("GroupChats");
+                    b.Property<DateTimeOffset?>("LastMessageAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte>("Type")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DirectPairKey")
+                        .IsUnique()
+                        .HasFilter("[DirectPairKey] IS NOT NULL");
+
+                    b.ToTable("Conversations");
                 });
 
-            modelBuilder.Entity("Vivcord.Server.Models.GroupChatMember", b =>
+            modelBuilder.Entity("Vivcord.Server.Models.ConversationMember", b =>
                 {
-                    b.Property<int>("GroupChatId")
-                        .HasColumnType("int");
+                    b.Property<long>("ConversationId")
+                        .HasColumnType("bigint");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("GroupChatId", "UserId");
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
 
-                    b.HasIndex("UserId");
+                    b.Property<Guid?>("InvitedById")
+                        .HasColumnType("uniqueidentifier");
 
-                    b.ToTable("GroupChatMembers");
+                    b.Property<DateTimeOffset?>("JoinedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long?>("LastReadMessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte>("Role")
+                        .HasColumnType("tinyint");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("ConversationId", "UserId");
+
+                    b.HasIndex("UserId", "Status");
+
+                    b.ToTable("ConversationMembers");
                 });
 
-            modelBuilder.Entity("Vivcord.Server.Models.GroupMessage", b =>
+            modelBuilder.Entity("Vivcord.Server.Models.Message", b =>
                 {
-                    b.Property<int>("id")
+                    b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
+                        .HasColumnType("bigint")
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.None);
 
                     b.Property<string>("AttachmentType")
                         .HasColumnType("nvarchar(max)");
@@ -318,62 +331,30 @@ namespace Vivcord.Server.Migrations
                     b.Property<string>("AttachmentUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("GroupId")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("Sender")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("SentAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Text")
+                    b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("id");
+                    b.Property<long>("ConversationId")
+                        .HasColumnType("bigint");
 
-                    b.HasIndex("GroupId");
-
-                    b.HasIndex("Sender");
-
-                    b.ToTable("GroupMessages");
-                });
-
-            modelBuilder.Entity("Vivcord.Server.Models.PrivateMessage", b =>
-                {
-                    b.Property<int>("id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
-
-                    b.Property<string>("AttachmentType")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AttachmentUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("Sender")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("SentAt")
+                    b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<Guid>("Target")
+                    b.Property<DateTimeOffset?>("EditedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("SenderId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.HasKey("Id");
 
-                    b.HasKey("id");
+                    b.HasIndex("SenderId");
 
-                    b.HasIndex("Sender");
+                    b.HasIndex("ConversationId", "Id")
+                        .IsDescending(false, true);
 
-                    b.HasIndex("Target");
-
-                    b.ToTable("PrivateMessages");
+                    b.ToTable("Messages");
                 });
 
             modelBuilder.Entity("Vivcord.Server.Models.RefreshToken", b =>
@@ -461,91 +442,42 @@ namespace Vivcord.Server.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Vivcord.Server.Models.AppUserFriend", b =>
+            modelBuilder.Entity("Vivcord.Server.Models.ConversationMember", b =>
                 {
-                    b.HasOne("Vivcord.Server.Models.AppUser", "Friend")
-                        .WithMany()
-                        .HasForeignKey("FriendId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Vivcord.Server.Models.AppUser", "User")
-                        .WithMany("Friends")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Friend");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Vivcord.Server.Models.GroupChat", b =>
-                {
-                    b.HasOne("Vivcord.Server.Models.AppUser", "Admin")
-                        .WithMany("AdminiedGroups")
-                        .HasForeignKey("adminId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Admin");
-                });
-
-            modelBuilder.Entity("Vivcord.Server.Models.GroupChatMember", b =>
-                {
-                    b.HasOne("Vivcord.Server.Models.GroupChat", "GroupChat")
+                    b.HasOne("Vivcord.Server.Models.Conversation", "Conversation")
                         .WithMany("Members")
-                        .HasForeignKey("GroupChatId")
+                        .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("Vivcord.Server.Models.AppUser", "User")
-                        .WithMany("GroupMemberships")
+                        .WithMany("ConversationMemberships")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("GroupChat");
+                    b.Navigation("Conversation");
 
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Vivcord.Server.Models.GroupMessage", b =>
+            modelBuilder.Entity("Vivcord.Server.Models.Message", b =>
                 {
-                    b.HasOne("Vivcord.Server.Models.GroupChat", "GroupChat")
+                    b.HasOne("Vivcord.Server.Models.Conversation", "Conversation")
                         .WithMany("Messages")
-                        .HasForeignKey("GroupId")
+                        .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Vivcord.Server.Models.AppUser", "SenderUser")
+                    b.HasOne("Vivcord.Server.Models.AppUser", "Sender")
                         .WithMany()
-                        .HasForeignKey("Sender")
+                        .HasForeignKey("SenderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("GroupChat");
+                    b.Navigation("Conversation");
 
-                    b.Navigation("SenderUser");
-                });
-
-            modelBuilder.Entity("Vivcord.Server.Models.PrivateMessage", b =>
-                {
-                    b.HasOne("Vivcord.Server.Models.AppUser", "SenderUser")
-                        .WithMany()
-                        .HasForeignKey("Sender")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Vivcord.Server.Models.AppUser", "TargetUser")
-                        .WithMany()
-                        .HasForeignKey("Target")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("SenderUser");
-
-                    b.Navigation("TargetUser");
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("Vivcord.Server.Models.RefreshToken", b =>
@@ -561,14 +493,10 @@ namespace Vivcord.Server.Migrations
 
             modelBuilder.Entity("Vivcord.Server.Models.AppUser", b =>
                 {
-                    b.Navigation("AdminiedGroups");
-
-                    b.Navigation("Friends");
-
-                    b.Navigation("GroupMemberships");
+                    b.Navigation("ConversationMemberships");
                 });
 
-            modelBuilder.Entity("Vivcord.Server.Models.GroupChat", b =>
+            modelBuilder.Entity("Vivcord.Server.Models.Conversation", b =>
                 {
                     b.Navigation("Members");
 

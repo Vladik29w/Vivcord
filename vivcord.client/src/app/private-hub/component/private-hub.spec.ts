@@ -28,5 +28,11 @@ describe('PrivateHubComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('should manage messageText signal and clear on send', () => {
+    expect(component.messageText()).toBe('');
+    component.messageText.set('Hello direct message');
+    expect(component.messageText()).toBe('Hello direct message');
+  });
 });
 

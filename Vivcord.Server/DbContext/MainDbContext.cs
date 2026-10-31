@@ -1,100 +1,93 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Vivcord.Server.Models;
 
-namespace Vivcord.Server.DbContext
+namespace Vivcord.Server.DbContext;
+
+public class MainDbContext(DbContextOptions<MainDbContext> options)
+    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options)
 {
-    public class MainDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<ConversationMember> ConversationMembers => Set<ConversationMember>();
+    public DbSet<Message> Messages => Set<Message>();
+
+    protected override void OnModelCreating(ModelBuilder builder)
     {
-        public MainDbContext(DbContextOptions<MainDbContext> options) : base(options) { }
-        public DbSet<RefreshToken> RefreshTokens { get; set; }
-        public DbSet<PrivateMessage> PrivateMessages { get; set; }
-        public DbSet<GroupMessage> GroupMessages { get; set; }
-        public DbSet<AppUserFriend> UserFriends { get; set; }
-        public DbSet<GroupChat> GroupChats { get; set; }
-        public DbSet<GroupChatMember> GroupChatMembers { get; set; }
+        base.OnModelCreating(builder);
 
-        protected override void OnModelCreating(ModelBuilder builder)
+        // Role seeding
+        builder.Entity<IdentityRole<Guid>>().HasData(
+            new IdentityRole<Guid> { Id = Guid.Parse("fab4fac1-c546-41de-aebc-a17da9526085"), Name = "Admin", NormalizedName = "ADMIN", ConcurrencyStamp = "1" },
+            new IdentityRole<Guid> { Id = Guid.Parse("c7b013f0-5201-4317-bcc8-c21ff591658d"), Name = "User", NormalizedName = "USER", ConcurrencyStamp = "2" }
+        );
+
+        // Conversation
+        builder.Entity<Conversation>(entity =>
         {
-            base.OnModelCreating(builder);
+            entity.Property(c => c.Id)
+                .ValueGeneratedOnAdd()
+                .HasValueGenerator<SnowflakeValueGenerator>()
+                .Metadata.SetValueGenerationStrategy(SqlServerValueGenerationStrategy.None);
 
-            builder.Entity<IdentityRole<Guid>>().HasData(
-                new IdentityRole<Guid> { Id = Guid.Parse("fab4fac1-c546-41de-aebc-a17da9526085"), Name = "Admin", NormalizedName = "ADMIN", ConcurrencyStamp = "1" },
-                new IdentityRole<Guid> { Id = Guid.Parse("c7b013f0-5201-4317-bcc8-c21ff591658d"), Name = "User", NormalizedName = "USER", ConcurrencyStamp = "2" }
-            );
+            entity.Property(c => c.DirectPairKey)
+                .HasMaxLength(73)
+                .IsUnicode(false);
 
-            // AppUserFriend relationships
-            builder.Entity<AppUserFriend>()
-            .HasKey(uf => new { uf.UserId, uf.FriendId });
+            entity.HasIndex(c => c.DirectPairKey)
+                .IsUnique()
+                .HasFilter("[DirectPairKey] IS NOT NULL");
+        });
 
-            builder.Entity<AppUserFriend>()
-                .HasOne(uf => uf.User)
-                .WithMany(u => u.Friends)
-                .HasForeignKey(uf => uf.UserId)
-                .OnDelete(DeleteBehavior.Restrict);
+        // ConversationMember
+        builder.Entity<ConversationMember>(entity =>
+        {
+            entity.HasKey(cm => new { cm.ConversationId, cm.UserId });
 
-            builder.Entity<AppUserFriend>()
-                .HasOne(uf => uf.Friend)
-                .WithMany()
-                .HasForeignKey(uf => uf.FriendId)
+            entity.HasIndex(cm => new { cm.UserId, cm.Status });
+
+            entity.HasOne(cm => cm.Conversation)
+                .WithMany(c => c.Members)
+                .HasForeignKey(cm => cm.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // GroupChatMember relationships
-            builder.Entity<GroupChatMember>()
-                .HasKey(gcm => new { gcm.GroupChatId, gcm.UserId });
+            entity.HasOne(cm => cm.User)
+                .WithMany(u => u.ConversationMemberships)
+                .HasForeignKey(cm => cm.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
-            builder.Entity<GroupChatMember>()
-                .HasOne(gcm => gcm.GroupChat)
-                .WithMany(gc => gc.Members)
-                .HasForeignKey(gcm => gcm.GroupChatId)
+        // Message
+        builder.Entity<Message>(entity =>
+        {
+            entity.Property(m => m.Id)
+                .ValueGeneratedOnAdd()
+                .HasValueGenerator<SnowflakeValueGenerator>()
+                .Metadata.SetValueGenerationStrategy(SqlServerValueGenerationStrategy.None);
+
+            entity.HasIndex(m => new { m.ConversationId, m.Id })
+                .IsDescending(false, true);
+
+            entity.HasOne(m => m.Conversation)
+                .WithMany(c => c.Messages)
+                .HasForeignKey(m => m.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            builder.Entity<GroupChatMember>()
-                .HasOne(gcm => gcm.User)
-                .WithMany(u => u.GroupMemberships)
-                .HasForeignKey(gcm => gcm.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            // GroupChat admin relationship
-            builder.Entity<GroupChat>()
-                .HasOne(gc => gc.Admin)
-                .WithMany(u => u.AdminiedGroups)
-                .HasForeignKey(gc => gc.adminId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // GroupMessage relationship
-            builder.Entity<GroupMessage>()
-                .HasOne(gm => gm.GroupChat)
-                .WithMany(gc => gc.Messages)
-                .HasForeignKey(gm => gm.GroupId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            builder.Entity<GroupMessage>()
-                .HasOne(gm => gm.SenderUser)
+            entity.HasOne(m => m.Sender)
                 .WithMany()
-                .HasForeignKey(gm => gm.Sender)
+                .HasForeignKey(m => m.SenderId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
 
-            // PrivateMessage relationship
-            builder.Entity<PrivateMessage>()
-                .HasOne(pm => pm.SenderUser)
-                .WithMany()
-                .HasForeignKey(pm => pm.Sender)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.Entity<PrivateMessage>()
-                .HasOne(pm => pm.TargetUser)
-                .WithMany()
-                .HasForeignKey(pm => pm.Target)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // RefreshToken relationship
-            builder.Entity<RefreshToken>()
-                .HasOne(rt => rt.User)
+        // RefreshToken
+        builder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasOne(rt => rt.User)
                 .WithMany()
                 .HasForeignKey(rt => rt.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-        }
+        });
     }
 }

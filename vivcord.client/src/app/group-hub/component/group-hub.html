@@ -10,7 +10,7 @@
         </div>
       </div>
       <div class="header-user-info">
-        <h2 class="header-user-name">{{ groupInfo()?.name ?? ('Group #' + groupId()) }}</h2>
+        <h2 class="header-user-name">{{ groupTitle() }}</h2>
       </div>
     </div>
 
@@ -170,6 +170,8 @@
           #msgInput
           type="text"
           placeholder="Some message..."
+          [value]="messageText()"
+          (input)="messageText.set($any($event.target).value)"
           (keyup.enter)="send(msgInput.value); msgInput.value = ''"
           [disabled]="isUploading()"
           autofocus
@@ -180,7 +182,7 @@
         type="button"
         class="btn-send-message icon-only"
         (click)="send(msgInput.value); msgInput.value = ''"
-        [disabled]="isUploading() || (!msgInput.value && !selectedFile())"
+        [disabled]="isUploading() || (!messageText().trim() && !selectedFile())"
         title="Send">
         @if (isUploading()) {
           <span class="spinner"></span>
@@ -220,9 +222,9 @@
         </div>
 
         <!-- Add Member Section (Top) -->
-        <div class="members-modal-add-section">
-          @if (isAdmin()) {
-            <label class="add-section-label">Add member by nickname</label>
+        @if (isAdmin()) {
+          <div class="members-modal-add-section">
+            <label class="add-section-label">Invite member by nickname</label>
             <div class="add-member-input-row">
               <div class="add-input-wrapper">
                 <span class="input-at-prefix">@</span>
@@ -231,6 +233,8 @@
                   type="text"
                   placeholder="Enter user nickname..."
                   class="modal-add-input"
+                  [value]="inviteNickname()"
+                  (input)="inviteNickname.set($any($event.target).value)"
                   [disabled]="isAddingMember()"
                   (keyup.enter)="addMember(newMemberInput.value, newMemberInput)"
                   autofocus
@@ -239,12 +243,12 @@
               <button
                 type="button"
                 class="btn-modal-add"
-                [disabled]="isAddingMember() || !newMemberInput.value.trim()"
+                [disabled]="isAddingMember() || !inviteNickname().trim()"
                 (click)="addMember(newMemberInput.value, newMemberInput)">
                 @if (isAddingMember()) {
                   <span class="spinner-small"></span>
                 } @else {
-                  <span>Add</span>
+                  <span>Invite</span>
                 }
               </button>
             </div>
@@ -269,8 +273,8 @@
                 <span>{{ addMemberSuccess() }}</span>
               </div>
             }
-          }
-        </div>
+          </div>
+        }
 
         <!-- Members List Section -->
         <div class="members-modal-list-section">
@@ -292,7 +296,7 @@
                 <div class="member-info-col">
                   <div class="member-primary-line">
                     <span class="member-display-name">{{ m.displayName || m.userName }}</span>
-                    @if (m.userId === groupInfo()?.adminId) {
+                    @if (m.role === 'Admin') {
                       <span class="badge-role-admin" title="Group Admin">
                         <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
                           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -300,29 +304,51 @@
                         Admin
                       </span>
                     }
-                    @if (m.userId === senderId()) {
+                    @if (m.status === 'Pending') {
+                      <span class="badge-role-pending" title="Pending invitation">Invited</span>
+                    }
+                    @if (isMyMessage(m.userId)) {
                       <span class="badge-role-you">You</span>
                     }
                   </div>
                   <span class="member-username">&#64;{{ m.userName }}</span>
                 </div>
 
-                @if (isAdmin() && m.userId !== groupInfo()?.adminId) {
-                  <button
-                    type="button"
-                    class="btn-remove-member"
-                    [disabled]="isRemovingMember() === m.userName"
-                    (click)="removeMember(m.userName)"
-                    title="Remove member">
-                    @if (isRemovingMember() === m.userName) {
-                      <span class="spinner-small"></span>
-                    } @else {
-                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                      </svg>
+                @if (isAdmin() && !isMyMessage(m.userId)) {
+                  <div class="member-row-actions">
+                    @if (m.status === 'Joined' && m.role !== 'Admin') {
+                      <button
+                        type="button"
+                        class="btn-promote-member"
+                        [disabled]="isAssigningAdmin() === m.userName"
+                        (click)="assignAdmin(m.userName)"
+                        title="Transfer Admin Role">
+                        @if (isAssigningAdmin() === m.userName) {
+                          <span class="spinner-small"></span>
+                        } @else {
+                          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                          </svg>
+                        }
+                      </button>
                     }
-                  </button>
+
+                    <button
+                      type="button"
+                      class="btn-remove-member"
+                      [disabled]="isRemovingMember() === m.userName"
+                      (click)="removeMember(m.userName)"
+                      [title]="m.status === 'Pending' ? 'Cancel invitation' : 'Kick member'">
+                      @if (isRemovingMember() === m.userName) {
+                        <span class="spinner-small"></span>
+                      } @else {
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                          <line x1="18" y1="6" x2="6" y2="18"/>
+                          <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      }
+                    </button>
+                  </div>
                 }
               </div>
             } @empty {
@@ -331,6 +357,27 @@
               </div>
             }
           </div>
+        </div>
+
+        <!-- Modal Footer Actions (Leave / Delete Group) -->
+        <div class="members-modal-footer">
+          <button
+            type="button"
+            class="btn-group-footer-action leave"
+            [disabled]="isLeavingOrDeleting()"
+            (click)="leaveGroup()">
+            Leave Group
+          </button>
+
+          @if (isAdmin()) {
+            <button
+              type="button"
+              class="btn-group-footer-action delete"
+              [disabled]="isLeavingOrDeleting()"
+              (click)="deleteGroup()">
+              Delete Group
+            </button>
+          }
         </div>
 
       </div>

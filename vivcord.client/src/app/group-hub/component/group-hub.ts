@@ -1,11 +1,24 @@
-import { Component, inject, signal, OnInit, OnDestroy, computed, DestroyRef, ChangeDetectionStrategy, input, effect, ViewChild, ElementRef } from '@angular/core';
+import {
+  Component,
+  inject,
+  signal,
+  OnInit,
+  OnDestroy,
+  computed,
+  DestroyRef,
+  ChangeDetectionStrategy,
+  input,
+  effect,
+  ViewChild,
+  ElementRef,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { GroupHubService } from '../service/group-hub.service';
 import { GroupManagementService } from '../service/group-management.service';
 import { AccountService } from '@account/service/account.service';
 import { MessageDTO } from '../../shared/messaging/dto/message.dto';
-import { GroupChatDTO, UserProfileDTO } from '../dto/group-hub.dto';
+import { ConversationMemberDTO, GroupChatDTO } from '../dto/conversation.dto';
 import { VoiceCallApiService } from '../../voice-chat/service/voice-call-api.service';
 import { LiveKitService } from '../../voice-chat/service/live-kit.service';
 import { environment } from '../../../environments/environment';
@@ -25,6 +38,8 @@ import { ToastService } from '../../shared/toast/service/toast.service';
 })
 export class GroupHubComponent implements OnInit, OnDestroy {
   @ViewChild('messagesViewport') private messagesViewport?: ElementRef<HTMLElement>;
+  @ViewChild('msgInput') private msgInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('newMemberInput') private newMemberInput?: ElementRef<HTMLInputElement>;
 
   private readonly router = inject(Router);
   private readonly groupService = inject(GroupHubService);
@@ -38,7 +53,7 @@ export class GroupHubComponent implements OnInit, OnDestroy {
   public readonly groupIdParam = input<string | undefined>(undefined, { alias: 'groupId' });
   public readonly groupId = computed(() => {
     const raw = this.groupIdParam();
-    return raw ? Number(raw) : null;
+    return raw ? raw.trim() : null;
   });
 
   public readonly isStartingCall = signal(false);
@@ -52,12 +67,18 @@ export class GroupHubComponent implements OnInit, OnDestroy {
 
   public readonly groupInfo = signal<GroupChatDTO | null>(null);
   public readonly messages = signal<MessageDTO[]>([]);
+  public readonly messageText = signal('');
   public readonly selectedFile = signal<File | null>(null);
   public readonly isUploading = signal(false);
   public readonly showGifPicker = signal(false);
 
+  public readonly groupTitle = computed(() => {
+    const info = this.groupInfo();
+    return info?.title || info?.name || `Group #${this.groupId()}`;
+  });
+
   public readonly groupAvatarInitials = computed(() => {
-    const name = this.groupInfo()?.name;
+    const name = this.groupTitle();
     return (name ? name.substring(0, 2) : 'GP').toUpperCase();
   });
 
@@ -66,23 +87,38 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     return (name ? name.substring(0, 2) : 'ME').toUpperCase();
   });
 
-  public readonly myProfilePictureUrl = computed(() => this.accountService.currentUser()?.profilePictureUrl ?? null);
+  public readonly myProfilePictureUrl = computed(
+    () => this.accountService.currentUser()?.profilePictureUrl ?? null
+  );
 
   public readonly isAdmin = computed(() => {
     const info = this.groupInfo();
     const me = this.senderId();
-    return info && me ? info.adminId === me : false;
+    if (!info || !me) return false;
+    const myMember = info.members?.find(
+      m => m.userId?.toLowerCase() === me.toLowerCase() && m.status !== 'Left'
+    );
+    if (myMember) {
+      return myMember.role === 'Admin';
+    }
+    return info.adminId ? info.adminId.toLowerCase() === me.toLowerCase() : false;
   });
 
   public readonly isMembersModalOpen = signal(false);
+  public readonly inviteNickname = signal('');
   public readonly isAddingMember = signal(false);
   public readonly isRemovingMember = signal<string | null>(null);
+  public readonly isAssigningAdmin = signal<string | null>(null);
+  public readonly isLeavingOrDeleting = signal(false);
   public readonly addMemberError = signal<string | null>(null);
   public readonly addMemberSuccess = signal<string | null>(null);
 
-  public readonly members = computed(() => this.groupInfo()?.members ?? []);
+  public readonly members = computed(() =>
+    (this.groupInfo()?.members ?? []).filter(m => m.status !== 'Left')
+  );
+
   public readonly membersMap = computed(() => {
-    const map = new Map<string, UserProfileDTO>();
+    const map = new Map<string, ConversationMemberDTO>();
     for (const m of this.members()) {
       if (m.userId) {
         map.set(m.userId.toLowerCase(), m);
@@ -90,9 +126,10 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     }
     return map;
   });
-  public readonly membersCount = computed(() => {
-    return this.groupInfo()?.members?.length ?? 0;
-  });
+
+  public readonly membersCount = computed(() =>
+    this.members().filter(m => m.status === 'Joined').length
+  );
 
   constructor() {
     effect(() => {
@@ -104,7 +141,10 @@ export class GroupHubComponent implements OnInit, OnDestroy {
       const id = this.groupId();
       if (!id) return;
 
-      this.groupService.loadGroupHistory(id)
+      this.groupService.joinGroup(id);
+
+      this.groupService
+        .loadGroupHistory(id)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: history => {
@@ -114,13 +154,14 @@ export class GroupHubComponent implements OnInit, OnDestroy {
           error: err => console.error('[GroupHubComponent] Failed to load history:', err),
         });
 
-      this.groupManagement.getGroup(id)
+      this.groupManagement
+        .getGroup(id)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: group => this.groupInfo.set(group),
           error: err => {
             console.error('[GroupHubComponent] Failed to load group info:', err);
-            this.router.navigate(['/direct-messages']);
+            this.router.navigate(['/']);
           },
         });
     });
@@ -129,6 +170,21 @@ export class GroupHubComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.groupService.connectToHub();
     this.subscribeToIncomingMessages();
+
+    this.groupService.groupsUpdated$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(updatedConvId => {
+        const currentId = this.groupId();
+        if (currentId && (!updatedConvId || updatedConvId === currentId)) {
+          this.groupManagement
+            .getGroup(currentId)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: group => this.groupInfo.set(group),
+              error: () => this.router.navigate(['/']),
+            });
+        }
+      });
   }
 
   ngOnDestroy(): void {
@@ -145,12 +201,13 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     if (!gId || this.isStartingCall()) return;
 
     this.isStartingCall.set(true);
-    this.voiceCallApi.initiateGroupCall(gId)
+    this.voiceCallApi
+      .initiateGroupCall(gId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: async ({ roomId, token }) => {
           try {
-            const title = this.groupInfo()?.name || `Group #${gId}`;
+            const title = this.groupTitle();
             await this.livekitService.connect(environment.liveKitUrl, token, roomId, title);
           } catch (err) {
             console.error('[GroupHub] Voice call connection failed:', err);
@@ -207,6 +264,8 @@ export class GroupHubComponent implements OnInit, OnDestroy {
       ...msgs,
       {
         id: tempId,
+        conversationId: gId,
+        groupId: gId,
         senderId: myId,
         text: '',
         status: 'sending',
@@ -220,7 +279,7 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     this.showGifPicker.set(false);
 
     try {
-      const realId = await this.groupService.sendMessage(gId.toString(), '', gifUrl, 'image');
+      const realId = await this.groupService.sendMessage(gId, '', gifUrl, 'image');
       this.messages.update(msgs =>
         msgs.map(m => (m.id === tempId ? { ...m, id: realId, status: 'sent' } : m))
       );
@@ -231,25 +290,33 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     }
   }
 
-  public async send(text: string): Promise<void> {
+  public async send(text?: string): Promise<void> {
+    const rawText = text !== undefined ? text : this.messageText();
     const gId = this.groupId();
     const myId = this.senderId();
     const file = this.selectedFile();
 
-    if (!gId || (!text.trim() && !file) || !myId) return;
+    if (!gId || (!rawText.trim() && !file) || !myId) return;
+
+    this.messageText.set('');
+    if (this.msgInput?.nativeElement) {
+      this.msgInput.nativeElement.value = '';
+    }
 
     const tempId = crypto.randomUUID();
     const localPreviewUrl = file ? URL.createObjectURL(file) : undefined;
     const attachmentType = file
-      ? (file.type.startsWith('video/') ? 'video' : 'image') as 'image' | 'video'
+      ? ((file.type.startsWith('video/') ? 'video' : 'image') as 'image' | 'video')
       : undefined;
 
     this.messages.update(msgs => [
       ...msgs,
       {
         id: tempId,
+        conversationId: gId,
+        groupId: gId,
         senderId: myId,
-        text,
+        text: rawText,
         status: 'sending',
         attachmentUrl: localPreviewUrl,
         attachmentType,
@@ -263,8 +330,8 @@ export class GroupHubComponent implements OnInit, OnDestroy {
 
     try {
       const realId = await this.groupService.sendMessageWithAttachment(
-        gId.toString(),
-        text,
+        gId,
+        rawText,
         file ?? undefined
       );
       this.messages.update(msgs =>
@@ -292,6 +359,7 @@ export class GroupHubComponent implements OnInit, OnDestroy {
   public openMembersModal(): void {
     this.addMemberError.set(null);
     this.addMemberSuccess.set(null);
+    this.inviteNickname.set('');
     this.isMembersModalOpen.set(true);
     const id = this.groupId();
     if (id) {
@@ -301,12 +369,14 @@ export class GroupHubComponent implements OnInit, OnDestroy {
 
   public closeMembersModal(): void {
     this.isMembersModalOpen.set(false);
+    this.inviteNickname.set('');
     this.addMemberError.set(null);
     this.addMemberSuccess.set(null);
   }
 
-  public reloadGroup(id: number): void {
-    this.groupManagement.getGroup(id)
+  public reloadGroup(id: string): void {
+    this.groupManagement
+      .getGroup(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: group => this.groupInfo.set(group),
@@ -314,28 +384,38 @@ export class GroupHubComponent implements OnInit, OnDestroy {
       });
   }
 
-  public addMember(userName: string, inputEl?: HTMLInputElement): void {
+  public addMember(userName?: string, inputEl?: HTMLInputElement): void {
     const gId = this.groupId();
-    const trimmed = userName.trim();
+    const rawName = userName !== undefined ? userName : this.inviteNickname();
+    const trimmed = rawName.trim();
     if (!gId || !trimmed || this.isAddingMember()) return;
 
     this.isAddingMember.set(true);
     this.addMemberError.set(null);
     this.addMemberSuccess.set(null);
 
-    this.groupManagement.addMember(gId, trimmed)
+    this.groupManagement
+      .inviteMember(gId, trimmed)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           this.isAddingMember.set(false);
-          this.addMemberSuccess.set(`User @${trimmed} added`);
+          this.addMemberSuccess.set(`Invitation sent to @${trimmed}`);
+          this.inviteNickname.set('');
           if (inputEl) inputEl.value = '';
+          if (this.newMemberInput?.nativeElement) {
+            this.newMemberInput.nativeElement.value = '';
+          }
           this.reloadGroup(gId);
           setTimeout(() => this.addMemberSuccess.set(null), 3000);
         },
         error: err => {
           this.isAddingMember.set(false);
-          const msg = err.error?.title || err.error?.detail || (typeof err.error === 'string' ? err.error : null) || 'Failed to add member';
+          const msg =
+            err.error?.detail ||
+            err.error?.title ||
+            (typeof err.error === 'string' ? err.error : null) ||
+            'Failed to invite member';
           this.addMemberError.set(msg);
         },
       });
@@ -347,7 +427,8 @@ export class GroupHubComponent implements OnInit, OnDestroy {
     if (!gId || !trimmed || this.isRemovingMember()) return;
 
     this.isRemovingMember.set(trimmed);
-    this.groupManagement.removeMember(gId, trimmed)
+    this.groupManagement
+      .kickMember(gId, trimmed)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
@@ -356,7 +437,100 @@ export class GroupHubComponent implements OnInit, OnDestroy {
         },
         error: err => {
           this.isRemovingMember.set(null);
-          console.error('[GroupHub] Remove member failed:', err);
+          console.error('[GroupHub] Kick member failed:', err);
+        },
+      });
+  }
+
+  public assignAdmin(userName: string): void {
+    const gId = this.groupId();
+    const trimmed = userName.trim();
+    if (!gId || !trimmed || this.isAssigningAdmin()) return;
+
+    this.isAssigningAdmin.set(trimmed);
+    this.groupManagement
+      .assignAdmin(gId, trimmed)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.isAssigningAdmin.set(null);
+          this.reloadGroup(gId);
+          this.toastService.show({
+            title: 'Admin transferred',
+            message: `@${trimmed} is now the group admin`,
+            type: 'success',
+          });
+        },
+        error: err => {
+          this.isAssigningAdmin.set(null);
+          console.error('[GroupHub] Assign admin failed:', err);
+          this.toastService.show({
+            title: 'Failed to assign admin',
+            message: err?.error?.detail || 'Could not transfer admin role',
+            type: 'error',
+          });
+        },
+      });
+  }
+
+  public leaveGroup(): void {
+    const gId = this.groupId();
+    if (!gId || this.isLeavingOrDeleting()) return;
+
+    this.isLeavingOrDeleting.set(true);
+    this.groupManagement
+      .leaveGroup(gId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.isLeavingOrDeleting.set(false);
+          this.closeMembersModal();
+          this.toastService.show({
+            title: 'Left group',
+            message: `You left "${this.groupTitle()}"`,
+            type: 'info',
+          });
+          this.router.navigate(['/']);
+        },
+        error: err => {
+          this.isLeavingOrDeleting.set(false);
+          console.error('[GroupHub] Leave group failed:', err);
+          this.toastService.show({
+            title: 'Failed to leave group',
+            message: err?.error?.detail || 'An error occurred',
+            type: 'error',
+          });
+        },
+      });
+  }
+
+  public deleteGroup(): void {
+    const gId = this.groupId();
+    if (!gId || this.isLeavingOrDeleting()) return;
+
+    this.isLeavingOrDeleting.set(true);
+    this.groupManagement
+      .deleteGroup(gId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.isLeavingOrDeleting.set(false);
+          this.closeMembersModal();
+          this.toastService.show({
+            title: 'Group deleted',
+            message: `Group "${this.groupTitle()}" was deleted`,
+            type: 'info',
+          });
+          this.router.navigate(['/']);
+        },
+        error: err => {
+          this.isLeavingOrDeleting.set(false);
+          console.error('[GroupHub] Delete group failed:', err);
+          this.toastService.show({
+            title: 'Failed to delete group',
+            message: err?.error?.detail || 'Only group admin can delete the group',
+            type: 'error',
+          });
         },
       });
   }
@@ -405,10 +579,11 @@ export class GroupHubComponent implements OnInit, OnDestroy {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(msg => {
         // Skip echo of own messages — they are already added optimistically in send()
-        if (msg.senderId === this.senderId()) return;
+        if (this.isMyMessage(msg.senderId)) return;
 
         const currentGroupId = this.groupId();
-        if (currentGroupId && msg.groupId === currentGroupId) {
+        const msgConvId = msg.conversationId ?? msg.groupId;
+        if (currentGroupId && msgConvId === currentGroupId) {
           const fullMsg: MessageDTO = {
             ...msg,
             id: msg.id ?? crypto.randomUUID(),
@@ -419,13 +594,15 @@ export class GroupHubComponent implements OnInit, OnDestroy {
           const senderName = msg.senderName || 'Someone';
           this.toastService.show({
             title: senderName,
-            message: msg.text || (msg.attachmentType ? `Sent a ${msg.attachmentType}` : 'Sent an attachment'),
+            message:
+              msg.text ||
+              (msg.attachmentType ? `Sent a ${msg.attachmentType}` : 'Sent an attachment'),
             avatarUrl: msg.senderAvatarUrl,
             avatarInitials: senderName.substring(0, 2).toUpperCase(),
             type: 'message',
             onClick: () => {
-              if (msg.groupId) {
-                this.router.navigate(['/group', msg.groupId]);
+              if (msgConvId) {
+                this.router.navigate(['/group', msgConvId]);
               }
             },
           });
