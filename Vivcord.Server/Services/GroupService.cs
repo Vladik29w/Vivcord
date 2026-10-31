@@ -8,7 +8,7 @@ using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Services;
 
-public interface IGroupService
+public interface IGroupService//CQRS separation maybe?
 {
     Task<ErrorOr<ConversationDto>> CreateGroupAsync(Guid userId, string name, CancellationToken ct = default);
     Task<ErrorOr<Success>> InviteMemberAsync(Guid adminId, long conversationId, string username, CancellationToken ct = default);
@@ -47,6 +47,25 @@ public class GroupService(
             await hubContext.Clients.Users(ids).SendAsync("GroupsUpdated", conversationId.ToString(), ct);
         }
     }
+
+    private ErrorOr<Success> ValidationChecks(Conversation conversation, Guid adminId, string username, AppUser? targetUser, CancellationToken ct = default)
+    {
+        if (conversation is null)
+            return Error.NotFound("Group.NotFound", "Group not found.");
+
+        if (conversation.Type != ConversationType.Group)
+            return Error.Validation("Group.InvalidType", "Cannot add members to a direct conversation via this method.");
+
+        var adminMember = conversation.Members.FirstOrDefault(m => m.UserId == adminId && m.Role == RoleType.Admin && m.Status == MemberStatus.Joined);
+        if (adminMember is null)
+            return Error.Unauthorized("Group.Unauthorized", "Only group admin can invite members.");
+
+        if (targetUser is null)
+            return Error.NotFound("User.NotFound", $"User '{username}' not found.");
+
+        return Result.Success;
+    }
+
     public async Task<ErrorOr<ConversationDto>> CreateGroupAsync(Guid userId, string name, CancellationToken ct = default)
     {
         var creator = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
@@ -80,21 +99,15 @@ public class GroupService(
             .Include(c => c.Members)
             .FirstOrDefaultAsync(c => c.Id == conversationId, ct);
 
-        if (conversation is null)
-            return Error.NotFound("Group.NotFound", "Group not found.");
-
-        if (conversation.Type != ConversationType.Group)
-            return Error.Validation("Group.InvalidType", "Cannot add members to a direct conversation via this method.");
-
-        var adminMember = conversation.Members.FirstOrDefault(m => m.UserId == adminId && m.Role == RoleType.Admin && m.Status == MemberStatus.Joined);
-        if (adminMember is null)
-            return Error.Unauthorized("Group.Unauthorized", "Only group admin can invite members.");
-
         var targetUser = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == username, ct);
         if (targetUser is null)
             return Error.NotFound("User.NotFound", $"User '{username}' not found.");
 
-        var existingMember = conversation.Members.FirstOrDefault(m => m.UserId == targetUser.Id);
+        var validationResult = ValidationChecks(conversation!, adminId, username, targetUser, ct);
+        if (validationResult.IsError)
+            return validationResult;
+
+        var existingMember = conversation!.Members.FirstOrDefault(m => m.UserId == targetUser.Id);
         if (existingMember is not null)
         {
             if (existingMember.Status == MemberStatus.Joined)
@@ -158,19 +171,11 @@ public class GroupService(
             .Include(c => c.Members)
             .FirstOrDefaultAsync(c => c.Id == conversationId, ct);
 
-        if (conversation is null)
-            return Error.NotFound("Group.NotFound", "Group not found.");
-
-        if (conversation.Type != ConversationType.Group)
-            return Error.Validation("Group.InvalidType", "Cannot kick members from a direct conversation.");
-
-        var adminMember = conversation.Members.FirstOrDefault(m => m.UserId == adminId && m.Role == RoleType.Admin && m.Status == MemberStatus.Joined);
-        if (adminMember is null)
-            return Error.Unauthorized("Group.Unauthorized", "Only group admin can kick members.");
-
         var targetUser = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == username, ct);
-        if (targetUser is null)
-            return Error.NotFound("User.NotFound", $"User '{username}' not found.");
+
+        var validationResult = ValidationChecks(conversation!, adminId, username, targetUser, ct);
+        if (validationResult.IsError)
+            return validationResult;
 
         if (adminId == targetUser.Id)
             return Error.Conflict("Group.SelfKick", "Admin cannot kick themselves (use LeaveGroup instead).");
