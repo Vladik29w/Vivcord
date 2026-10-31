@@ -80,14 +80,17 @@ public class FriendService(
 
     public async Task<ErrorOr<ConversationDto>> SendFriendRequestAsync(Guid userId, string targetUsername, CancellationToken ct = default)
     {
-        var targetUser = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == targetUsername, ct);
-        if (targetUser is null)
+        var targetUserId = await dbContext.Users
+            .Where(u => u.UserName == targetUsername)
+            .Select(u => (Guid?)u.Id)
+            .FirstOrDefaultAsync(ct);
+        if (targetUserId is not Guid targetId)
             return Error.NotFound("User.NotFound", $"User '{targetUsername}' not found.");
 
-        if (userId == targetUser.Id)
+        if (userId == targetId)
             return Error.Conflict("Friend.Self", "You cannot send a friend request to yourself.");
 
-        var pairKey = ConversationCommandService.GenerateDirectPairKey(userId, targetUser.Id);
+        var pairKey = ConversationCommandService.GenerateDirectPairKey(userId, targetId);
 
         var existingConv = await dbContext.Conversations
             .Include(c => c.Members).ThenInclude(m => m.User)
@@ -96,7 +99,7 @@ public class FriendService(
         if (existingConv is not null)
         {
             var senderMember = existingConv.Members.FirstOrDefault(m => m.UserId == userId);
-            var targetMember = existingConv.Members.FirstOrDefault(m => m.UserId == targetUser.Id);
+            var targetMember = existingConv.Members.FirstOrDefault(m => m.UserId == targetId);
 
             if (senderMember is not null && targetMember is not null)
             {
@@ -108,7 +111,7 @@ public class FriendService(
                     senderMember.Status = MemberStatus.Joined;
                     senderMember.JoinedAt = DateTimeOffset.UtcNow;
                     await dbContext.SaveChangesAsync(ct);
-                    await NotifyFriendsUpdatedAsync([userId, targetUser.Id], ct);
+                    await NotifyFriendsUpdatedAsync([userId, targetId], ct);
                     return existingConv.ToDto();
                 }
 
@@ -122,7 +125,7 @@ public class FriendService(
                 targetMember.JoinedAt = null;
 
                 await dbContext.SaveChangesAsync(ct);
-                await NotifyFriendsUpdatedAsync([userId, targetUser.Id], ct);
+                await NotifyFriendsUpdatedAsync([userId, targetId], ct);
                 return existingConv.ToDto();
             }
         }
@@ -143,7 +146,7 @@ public class FriendService(
                 },
                 new ConversationMember
                 {
-                    UserId = targetUser.Id,
+                    UserId = targetId,
                     Role = RoleType.Member,
                     Status = MemberStatus.Pending,
                     InvitedById = userId,
@@ -155,7 +158,7 @@ public class FriendService(
 
         var created = await commandService.CreateConversationAsync(request, ct);
         if (!created.IsError)
-            await NotifyFriendsUpdatedAsync([userId, targetUser.Id], ct);
+            await NotifyFriendsUpdatedAsync([userId, targetId], ct);
 
         return created;
     }
