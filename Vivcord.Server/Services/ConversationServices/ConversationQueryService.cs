@@ -2,6 +2,7 @@ using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Mappers;
 using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Services;
@@ -43,7 +44,7 @@ public class ConversationQueryService(MainDbContext dbContext) : IConversationQu
         if (conversation == null)
             return Error.NotFound("Conversation.NotFound", "Conversation not found or you are not an active member.");
 
-        return conversation.ToDto();
+        return ConversationMapperly.Instance.ToDto(conversation);
     }
 
     public async Task<ErrorOr<IReadOnlyList<ConversationDto>>> GetUserConversationsAsync(Guid userId, ConversationType? type = null, CancellationToken ct = default)
@@ -63,7 +64,7 @@ public class ConversationQueryService(MainDbContext dbContext) : IConversationQu
 
         return conversations
             .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
-            .Select(c => c.ToDto())
+            .Select(c => ConversationMapperly.Instance.ToDto(c))
             .ToList();
     }
 
@@ -92,6 +93,6 @@ public class ConversationQueryService(MainDbContext dbContext) : IConversationQu
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync(ct);
 
-        return list.Select(c => c.ToDto()).ToList();
+        return list.Select(c => ConversationMapperly.Instance.ToDto(c)).ToList();
     }
 }
