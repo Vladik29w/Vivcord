@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
 using Vivcord.Server.Hubs;
+using Vivcord.Server.Mappers;
 using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Services;
@@ -112,7 +113,7 @@ public class FriendService(
                     senderMember.JoinedAt = DateTimeOffset.UtcNow;
                     await dbContext.SaveChangesAsync(ct);
                     await NotifyFriendsUpdatedAsync([userId, targetId], ct);
-                    return existingConv.ToDto();
+                    return ConversationMapperly.Instance.ToDto(existingConv);
                 }
 
                 if (senderMember.Status is MemberStatus.Joined && targetMember.Status is MemberStatus.Pending)
@@ -126,7 +127,7 @@ public class FriendService(
 
                 await dbContext.SaveChangesAsync(ct);
                 await NotifyFriendsUpdatedAsync([userId, targetId], ct);
-                return existingConv.ToDto();
+                return ConversationMapperly.Instance.ToDto(existingConv);
             }
         }
 

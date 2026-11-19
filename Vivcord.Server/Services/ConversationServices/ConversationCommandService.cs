@@ -3,6 +3,7 @@ using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Vivcord.Server.DbContext;
 using Vivcord.Server.DTO;
+using Vivcord.Server.Mappers;
 using Vivcord.Server.Models;
 
 namespace Vivcord.Server.Services;
@@ -48,7 +49,7 @@ public class ConversationCommandService(MainDbContext dbContext) : IConversation
                 .FirstOrDefaultAsync(c => c.DirectPairKey == request.DirectPairKey, ct);
 
             if (concurrent != null)
-                return concurrent.ToDto();
+                return ConversationMapperly.Instance.ToDto(concurrent);
 
             throw;
         }
@@ -60,7 +61,7 @@ public class ConversationCommandService(MainDbContext dbContext) : IConversation
             .Include(m => m.User)
             .LoadAsync(ct);
 
-        return conversation.ToDto();
+        return ConversationMapperly.Instance.ToDto(conversation);
     }
 
     public async Task<ErrorOr<Success>> JoinConversationAsync(Guid userId, long conversationId, ConversationType? expectedType = null, CancellationToken ct = default)
